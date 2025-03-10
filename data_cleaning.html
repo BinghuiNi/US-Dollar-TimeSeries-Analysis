@@ -57,7 +57,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js" integrity="sha512-bLT0Qm9VnAYZDflyKcBaQ2gg0hSYNQrJ8RilYldYQ1FxQYoCLtUjuuRuZo+fjqhx/qtq/1itJ0C2ejDxltZVFg==" crossorigin="anonymous"></script><script src="site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="site_libs/quarto-nav/quarto-nav.js"></script>
 <script src="site_libs/quarto-nav/headroom.min.js"></script>
 <script src="site_libs/clipboard/clipboard.min.js"></script>
 <script src="site_libs/quarto-search/autocomplete.umd.js"></script>
@@ -100,9 +100,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" integrity="sha512-c3Nl8+7g4LMSTdrm621y7kf9v3SDPnhxLNhcjFJbKECVnmZHTdo+IRO05sNLTH/D3vA6u1X32ehoLC7WFVdheg==" crossorigin="anonymous"></script>
-
-<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
 
 
 <link rel="stylesheet" href="styles.css">
@@ -304,534 +301,49 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>gsci <span class="ot">&lt;-</span> gsci[<span class="fu">order</span>(gsci<span class="sc">$</span>Date), ]</span>
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># write.csv(gsci,"./data/gsci.csv", row.names = FALSE)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="cell-6" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}" data-execution_count="27">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>data <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Date =</span> <span class="fu">index</span>(GSPC), </span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>                       <span class="at">Open =</span> GSPC[, <span class="st">"GSPC.Open"</span>], </span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>                       <span class="at">High =</span> GSPC[, <span class="st">"GSPC.High"</span>], </span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>                       <span class="at">Low =</span> GSPC[, <span class="st">"GSPC.Low"</span>], </span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>                       <span class="at">Close =</span> GSPC[, <span class="st">"GSPC.Close"</span>])</span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(data)<span class="sc">&lt;</span> <span class="fu">c</span>(<span class="st">"Date"</span>, <span class="st">"Open"</span>, <span class="st">"High"</span>, <span class="st">"Low"</span>, <span class="st">"Close"</span>)</span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>data</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-display">
-<style>
-.list-inline {list-style: none; margin:0; padding: 0}
-.list-inline>li {display: inline-block}
-.list-inline>li:not(:last-child)::after {content: "\00b7"; padding: 0 .5ex}
-</style>
-<ol class="list-inline"><li>FALSE</li><li>TRUE</li><li>TRUE</li><li>TRUE</li><li>FALSE</li></ol>
+<div id="cell-6" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}" data-execution_count="64">
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>diff1 <span class="ot">&lt;-</span> <span class="fu">ggAcf</span>(<span class="fu">diff</span>(balance_ts), <span class="dv">50</span>, <span class="at">main=</span><span class="st">"ACF of First Differencing"</span>)<span class="sc">+</span> <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">lineend =</span> <span class="st">"butt"</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) <span class="sc">+</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) </span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>diff2 <span class="ot">&lt;-</span> <span class="fu">ggAcf</span>(<span class="fu">diff</span>(balance_ts, <span class="at">lag=</span><span class="dv">4</span>), <span class="dv">50</span>, <span class="at">main=</span><span class="st">"ACF of Seasonal Differencing"</span>)<span class="sc">+</span> <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">lineend =</span> <span class="st">"butt"</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) <span class="sc">+</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) </span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>diff3 <span class="ot">&lt;-</span> <span class="fu">ggAcf</span>(<span class="fu">diff</span>(<span class="fu">diff</span>(balance_ts, <span class="at">lag=</span><span class="dv">4</span>)), <span class="dv">50</span>, <span class="at">main=</span><span class="st">"ACF of both Seasonal and Ordinary Differencing"</span>)<span class="sc">+</span> <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">lineend =</span> <span class="st">"butt"</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) <span class="sc">+</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) </span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(diff1, diff2, diff3, <span class="at">nrow=</span><span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning message in ggplot2::geom_segment(lineend = "butt", ...):
+"Ignoring unknown parameters: `main`"
+Warning message in ggplot2::geom_segment(lineend = "butt", ...):
+"Ignoring unknown parameters: `main`"
+Warning message in ggplot2::geom_segment(lineend = "butt", ...):
+"Ignoring unknown parameters: `main`"</code></pre>
 </div>
 <div class="cell-output cell-output-display">
-<table class="dataframe caption-top table table-sm table-striped small" data-quarto-postprocess="true">
-<caption>A data.frame: 5032 × 5</caption>
-<thead>
-<tr class="header">
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th" scope="col">Date</th>
-<th data-quarto-table-cell-role="th" scope="col">GSPC.Open</th>
-<th data-quarto-table-cell-role="th" scope="col">GSPC.High</th>
-<th data-quarto-table-cell-role="th" scope="col">GSPC.Low</th>
-<th data-quarto-table-cell-role="th" scope="col">GSPC.Close</th>
-</tr>
-<tr class="odd">
-<th data-quarto-table-cell-role="th"></th>
-<th data-quarto-table-cell-role="th" scope="col">&lt;date&gt;</th>
-<th data-quarto-table-cell-role="th" scope="col">&lt;dbl&gt;</th>
-<th data-quarto-table-cell-role="th" scope="col">&lt;dbl&gt;</th>
-<th data-quarto-table-cell-role="th" scope="col">&lt;dbl&gt;</th>
-<th data-quarto-table-cell-role="th" scope="col">&lt;dbl&gt;</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-03</td>
-<td>2005-01-03</td>
-<td>1211.92</td>
-<td>1217.80</td>
-<td>1200.32</td>
-<td>1202.08</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-04</td>
-<td>2005-01-04</td>
-<td>1202.08</td>
-<td>1205.84</td>
-<td>1185.39</td>
-<td>1188.05</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-05</td>
-<td>2005-01-05</td>
-<td>1188.05</td>
-<td>1192.73</td>
-<td>1183.72</td>
-<td>1183.74</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-06</td>
-<td>2005-01-06</td>
-<td>1183.74</td>
-<td>1191.63</td>
-<td>1183.27</td>
-<td>1187.89</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-07</td>
-<td>2005-01-07</td>
-<td>1187.89</td>
-<td>1192.20</td>
-<td>1182.16</td>
-<td>1186.19</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-10</td>
-<td>2005-01-10</td>
-<td>1186.19</td>
-<td>1194.78</td>
-<td>1184.80</td>
-<td>1190.25</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-11</td>
-<td>2005-01-11</td>
-<td>1190.25</td>
-<td>1190.25</td>
-<td>1180.43</td>
-<td>1182.99</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-12</td>
-<td>2005-01-12</td>
-<td>1182.99</td>
-<td>1187.92</td>
-<td>1175.64</td>
-<td>1187.70</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-13</td>
-<td>2005-01-13</td>
-<td>1187.70</td>
-<td>1187.70</td>
-<td>1175.81</td>
-<td>1177.45</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-14</td>
-<td>2005-01-14</td>
-<td>1177.45</td>
-<td>1185.21</td>
-<td>1177.45</td>
-<td>1184.52</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-18</td>
-<td>2005-01-18</td>
-<td>1184.52</td>
-<td>1195.98</td>
-<td>1180.10</td>
-<td>1195.98</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-19</td>
-<td>2005-01-19</td>
-<td>1195.98</td>
-<td>1195.98</td>
-<td>1184.41</td>
-<td>1184.63</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-20</td>
-<td>2005-01-20</td>
-<td>1184.63</td>
-<td>1184.63</td>
-<td>1173.42</td>
-<td>1175.41</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-21</td>
-<td>2005-01-21</td>
-<td>1175.41</td>
-<td>1179.45</td>
-<td>1167.82</td>
-<td>1167.87</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-24</td>
-<td>2005-01-24</td>
-<td>1167.87</td>
-<td>1173.03</td>
-<td>1163.75</td>
-<td>1163.75</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-25</td>
-<td>2005-01-25</td>
-<td>1163.75</td>
-<td>1174.30</td>
-<td>1163.75</td>
-<td>1168.41</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-26</td>
-<td>2005-01-26</td>
-<td>1168.41</td>
-<td>1175.96</td>
-<td>1168.41</td>
-<td>1174.07</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-27</td>
-<td>2005-01-27</td>
-<td>1174.07</td>
-<td>1177.50</td>
-<td>1170.15</td>
-<td>1174.55</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-28</td>
-<td>2005-01-28</td>
-<td>1174.55</td>
-<td>1175.61</td>
-<td>1166.25</td>
-<td>1171.36</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-01-31</td>
-<td>2005-01-31</td>
-<td>1171.36</td>
-<td>1182.07</td>
-<td>1171.36</td>
-<td>1181.27</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-01</td>
-<td>2005-02-01</td>
-<td>1181.27</td>
-<td>1190.39</td>
-<td>1180.95</td>
-<td>1189.41</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-02</td>
-<td>2005-02-02</td>
-<td>1189.41</td>
-<td>1195.25</td>
-<td>1188.92</td>
-<td>1193.19</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-03</td>
-<td>2005-02-03</td>
-<td>1193.19</td>
-<td>1193.19</td>
-<td>1185.64</td>
-<td>1189.89</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-04</td>
-<td>2005-02-04</td>
-<td>1189.89</td>
-<td>1203.47</td>
-<td>1189.67</td>
-<td>1203.03</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-07</td>
-<td>2005-02-07</td>
-<td>1203.03</td>
-<td>1204.15</td>
-<td>1199.27</td>
-<td>1201.72</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-08</td>
-<td>2005-02-08</td>
-<td>1201.72</td>
-<td>1205.11</td>
-<td>1200.16</td>
-<td>1202.30</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-09</td>
-<td>2005-02-09</td>
-<td>1202.30</td>
-<td>1203.83</td>
-<td>1191.54</td>
-<td>1191.99</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-10</td>
-<td>2005-02-10</td>
-<td>1191.99</td>
-<td>1198.75</td>
-<td>1191.54</td>
-<td>1197.01</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-11</td>
-<td>2005-02-11</td>
-<td>1197.01</td>
-<td>1208.38</td>
-<td>1193.28</td>
-<td>1205.30</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2005-02-14</td>
-<td>2005-02-14</td>
-<td>1205.30</td>
-<td>1206.93</td>
-<td>1203.59</td>
-<td>1206.14</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">⋮</td>
-<td>⋮</td>
-<td>⋮</td>
-<td>⋮</td>
-<td>⋮</td>
-<td>⋮</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-15</td>
-<td>2024-11-15</td>
-<td>5912.79</td>
-<td>5915.32</td>
-<td>5853.01</td>
-<td>5870.62</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-18</td>
-<td>2024-11-18</td>
-<td>5874.17</td>
-<td>5908.12</td>
-<td>5865.95</td>
-<td>5893.62</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-19</td>
-<td>2024-11-19</td>
-<td>5870.05</td>
-<td>5923.51</td>
-<td>5855.29</td>
-<td>5916.98</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-20</td>
-<td>2024-11-20</td>
-<td>5914.34</td>
-<td>5920.67</td>
-<td>5860.56</td>
-<td>5917.11</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-21</td>
-<td>2024-11-21</td>
-<td>5940.58</td>
-<td>5963.32</td>
-<td>5887.26</td>
-<td>5948.71</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-22</td>
-<td>2024-11-22</td>
-<td>5944.36</td>
-<td>5972.90</td>
-<td>5944.36</td>
-<td>5969.34</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-25</td>
-<td>2024-11-25</td>
-<td>5992.28</td>
-<td>6020.75</td>
-<td>5963.91</td>
-<td>5987.37</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-26</td>
-<td>2024-11-26</td>
-<td>6000.03</td>
-<td>6025.42</td>
-<td>5992.27</td>
-<td>6021.63</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-27</td>
-<td>2024-11-27</td>
-<td>6014.11</td>
-<td>6020.16</td>
-<td>5984.87</td>
-<td>5998.74</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-11-29</td>
-<td>2024-11-29</td>
-<td>6003.98</td>
-<td>6044.17</td>
-<td>6003.98</td>
-<td>6032.38</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-02</td>
-<td>2024-12-02</td>
-<td>6040.11</td>
-<td>6053.58</td>
-<td>6035.33</td>
-<td>6047.15</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-03</td>
-<td>2024-12-03</td>
-<td>6042.97</td>
-<td>6052.07</td>
-<td>6033.39</td>
-<td>6049.88</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-04</td>
-<td>2024-12-04</td>
-<td>6069.39</td>
-<td>6089.84</td>
-<td>6061.06</td>
-<td>6086.49</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-05</td>
-<td>2024-12-05</td>
-<td>6089.03</td>
-<td>6094.55</td>
-<td>6072.90</td>
-<td>6075.11</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-06</td>
-<td>2024-12-06</td>
-<td>6081.38</td>
-<td>6099.97</td>
-<td>6079.98</td>
-<td>6090.27</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-09</td>
-<td>2024-12-09</td>
-<td>6083.01</td>
-<td>6088.51</td>
-<td>6048.63</td>
-<td>6052.85</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-10</td>
-<td>2024-12-10</td>
-<td>6057.59</td>
-<td>6065.40</td>
-<td>6029.89</td>
-<td>6034.91</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-11</td>
-<td>2024-12-11</td>
-<td>6060.15</td>
-<td>6092.59</td>
-<td>6060.15</td>
-<td>6084.19</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-12</td>
-<td>2024-12-12</td>
-<td>6074.29</td>
-<td>6079.68</td>
-<td>6051.25</td>
-<td>6051.25</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-13</td>
-<td>2024-12-13</td>
-<td>6068.17</td>
-<td>6078.58</td>
-<td>6035.77</td>
-<td>6051.09</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-16</td>
-<td>2024-12-16</td>
-<td>6063.79</td>
-<td>6085.19</td>
-<td>6059.14</td>
-<td>6074.08</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-17</td>
-<td>2024-12-17</td>
-<td>6052.55</td>
-<td>6057.68</td>
-<td>6035.19</td>
-<td>6050.61</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-18</td>
-<td>2024-12-18</td>
-<td>6047.65</td>
-<td>6070.67</td>
-<td>5867.79</td>
-<td>5872.16</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-19</td>
-<td>2024-12-19</td>
-<td>5912.71</td>
-<td>5935.52</td>
-<td>5866.07</td>
-<td>5867.08</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-20</td>
-<td>2024-12-20</td>
-<td>5842.00</td>
-<td>5982.06</td>
-<td>5832.30</td>
-<td>5930.85</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-23</td>
-<td>2024-12-23</td>
-<td>5940.25</td>
-<td>5978.25</td>
-<td>5902.57</td>
-<td>5974.07</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-24</td>
-<td>2024-12-24</td>
-<td>5984.63</td>
-<td>6040.10</td>
-<td>5981.44</td>
-<td>6040.04</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-26</td>
-<td>2024-12-26</td>
-<td>6024.97</td>
-<td>6049.75</td>
-<td>6007.37</td>
-<td>6037.59</td>
-</tr>
-<tr class="even">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-27</td>
-<td>2024-12-27</td>
-<td>6006.17</td>
-<td>6006.17</td>
-<td>5932.95</td>
-<td>5970.84</td>
-</tr>
-<tr class="odd">
-<td data-quarto-table-cell-role="th" scope="row">2024-12-30</td>
-<td>2024-12-30</td>
-<td>5920.67</td>
-<td>5940.79</td>
-<td>5869.16</td>
-<td>5906.94</td>
-</tr>
-</tbody>
-</table>
+<div>
+<figure class="figure">
+<p><img src="data_cleaning_files/figure-html/cell-8-output-2.png" width="420" height="420" class="figure-img"></p>
+</figure>
+</div>
+</div>
+</div>
+<div id="cell-7" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}">
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">adf.test</span>(<span class="fu">diff</span>(balance_ts, <span class="at">lag=</span><span class="dv">4</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-error">
+<pre><code>ERROR: Error in eval(expr, envir, enclos): object 'dxy_ts' not found
+
+Error in eval(expr, envir, enclos): object 'dxy_ts' not found
+Traceback:
+
+1. autoplot(dxy_ts)</code></pre>
+</div>
+</div>
+<div id="cell-8" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tseries)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning message:
+"package 'tseries' was built under R version 4.4.2"</code></pre>
 </div>
 </div>
 
