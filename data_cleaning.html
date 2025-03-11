@@ -301,51 +301,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>gsci <span class="ot">&lt;-</span> gsci[<span class="fu">order</span>(gsci<span class="sc">$</span>Date), ]</span>
 <span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co"># write.csv(gsci,"./data/gsci.csv", row.names = FALSE)</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<div id="cell-6" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}" data-execution_count="64">
-<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>diff1 <span class="ot">&lt;-</span> <span class="fu">ggAcf</span>(<span class="fu">diff</span>(balance_ts), <span class="dv">50</span>, <span class="at">main=</span><span class="st">"ACF of First Differencing"</span>)<span class="sc">+</span> <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">lineend =</span> <span class="st">"butt"</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) <span class="sc">+</span></span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) </span>
-<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>diff2 <span class="ot">&lt;-</span> <span class="fu">ggAcf</span>(<span class="fu">diff</span>(balance_ts, <span class="at">lag=</span><span class="dv">4</span>), <span class="dv">50</span>, <span class="at">main=</span><span class="st">"ACF of Seasonal Differencing"</span>)<span class="sc">+</span> <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
-<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">lineend =</span> <span class="st">"butt"</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) <span class="sc">+</span></span>
-<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) </span>
-<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>diff3 <span class="ot">&lt;-</span> <span class="fu">ggAcf</span>(<span class="fu">diff</span>(<span class="fu">diff</span>(balance_ts, <span class="at">lag=</span><span class="dv">4</span>)), <span class="dv">50</span>, <span class="at">main=</span><span class="st">"ACF of both Seasonal and Ordinary Differencing"</span>)<span class="sc">+</span> <span class="fu">theme_bw</span>()<span class="sc">+</span></span>
-<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_segment</span>(<span class="at">lineend =</span> <span class="st">"butt"</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) <span class="sc">+</span></span>
-<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_hline</span>(<span class="at">yintercept =</span> <span class="dv">0</span>, <span class="at">color =</span> <span class="st">"#5a3196"</span>) </span>
-<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">grid.arrange</span>(diff1, diff2, diff3, <span class="at">nrow=</span><span class="dv">3</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning message in ggplot2::geom_segment(lineend = "butt", ...):
-"Ignoring unknown parameters: `main`"
-Warning message in ggplot2::geom_segment(lineend = "butt", ...):
-"Ignoring unknown parameters: `main`"
-Warning message in ggplot2::geom_segment(lineend = "butt", ...):
-"Ignoring unknown parameters: `main`"</code></pre>
-</div>
-<div class="cell-output cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="data_cleaning_files/figure-html/cell-8-output-2.png" width="420" height="420" class="figure-img"></p>
-</figure>
-</div>
-</div>
-</div>
-<div id="cell-7" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}">
-<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">adf.test</span>(<span class="fu">diff</span>(balance_ts, <span class="at">lag=</span><span class="dv">4</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-error">
-<pre><code>ERROR: Error in eval(expr, envir, enclos): object 'dxy_ts' not found
-
-Error in eval(expr, envir, enclos): object 'dxy_ts' not found
-Traceback:
-
-1. autoplot(dxy_ts)</code></pre>
-</div>
-</div>
-<div id="cell-8" class="cell" data-vscode="{&quot;languageId&quot;:&quot;r&quot;}">
-<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tseries)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Warning message:
-"package 'tseries' was built under R version 4.4.2"</code></pre>
-</div>
-</div>
 
 
 
