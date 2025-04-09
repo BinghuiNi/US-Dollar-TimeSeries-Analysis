@@ -1,0 +1,1212 @@
+---
+title: "Univariate TS Models"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+execute:
+    echo: true
+    warning: false
+    message: false
+---
+
+::: {.callout-note}
+**For TAs:**  
+ 1. The differencing and ADF test have already been done in the EDA section. Here, I directly check the ACF and PACF plots of the stationary series.  
+ 2. I combined the ARIMA and SARIMA sections. By checking the ACF and PACF plots, I can determine whether a seasonal component exists, select appropriate orders of terms, and choose the optimal model through model diagnostics.
+:::
+
+Here, we will apply the ARIMA or SARIMA model to our 10 time series datasets in order to make forecasts. Below is a brief introduction to both models, including the parameters p, d, q, P, D, and Q.
+
+**ARIMA Model:**  
+ARIMA (AutoRegressive Integrated Moving Average) is used for non-seasonal time series data that exhibit patterns over time. The parameters are:  
+- **p**: The order of the autoregressive (AR) term.  
+- **d**: The degree of differencing to make the series stationary.  
+- **q**: The order of the moving average (MA) term.  
+
+**SARIMA Model:**  
+SARIMA (Seasonal ARIMA) is an extension of the ARIMA model that deals with seasonality in time series data. The additional parameters for seasonal components are:  
+- **P**: The order of the seasonal autoregressive (AR) term.  
+- **D**: The degree of seasonal differencing.  
+- **Q**: The order of the seasonal moving average (MA) term.  
+- **s**: The number of periods in each season.  
+
+**Data and Model Selection:**  
+In the [EDA phase](https://binghuini.github.io/_site_ts_usd_index/eda.html#differencing), we performed differencing and seasonal differencing to transform the original series into stationary series. The stationarity of the differenced series was validated using the Augmented Dickey-Fuller (ADF) test. Therefore, we can now decide whether to apply the ARIMA or SARIMA model and select the appropriate values for d or D.
+
+- **U.S. Dollar Index**: First-order differencing, ARIMA model, d=1.  
+- **Trade Balance**: Both seasonal and ordinary differencing, SARIMA model, d=1, D=1, s=4.  
+- **GDP**: First-order differencing, ARIMA model, d=1.  
+- **Unemployment Rate**: First-order differencing, ARIMA model, d=1.  
+- **CPI**: Both seasonal and ordinary differencing, SARIMA model, d=1, D=1, s=12.  
+- **S&P 500**: First-order differencing, ARIMA model, d=1.  
+- **Gold Price**: First-order differencing, ARIMA model, d=1.  
+- **Global Commodity Price**: First-order differencing, ARIMA model, d=1.  
+- **House Price**: First-order differencing, ARIMA model, d=1.  
+- **International Visitors**: Both seasonal and ordinary differencing, SARIMA model, d=1, D=1, s=12.  
+
+After performing the necessary differencing or seasonal differencing, all series have become stationary. We will now present the ACF and PACF plots of these differenced series to determine the optimal values for p (AR model), q (MA model), P (seasonal AR), and Q (seasonal MA).
+
+## ACF and PACF Plots
+
+The following displays the ACF and PACF plots for the stationary series after differencing.
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(quantmod)
+library(forecast)
+library(astsa)
+
+# Load data
+invisible(getSymbols("DX-Y.NYB", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+dxy <- data.frame(Date = index(`DX-Y.NYB`), 
+                       Open = `DX-Y.NYB`[, "DX-Y.NYB.Open"], 
+                       High = `DX-Y.NYB`[, "DX-Y.NYB.High"], 
+                       Low = `DX-Y.NYB`[, "DX-Y.NYB.Low"], 
+                       Close = `DX-Y.NYB`[, "DX-Y.NYB.Close"])
+colnames(dxy) <- c("Date", "Open", "High", "Low", "Close")
+dxy <- na.omit(dxy)
+
+bea <- read.csv("./data/bea.csv")
+bea$time <- as.Date(bea$time)
+
+gdp <- read.csv("./data/gdp.csv")
+gdp$time <- as.Date(gdp$time)
+gdp$total <- gdp$consumption + gdp$investment + gdp$net_export + gdp$government
+
+data_unem <- read.csv("./data/unem.csv", header=TRUE)
+data_unem$time <- as.Date(data_unem$time)
+
+data_cpi <- read.csv("./data/cpi.csv", header=TRUE)
+data_cpi$time <- as.Date(data_cpi$time)
+
+invisible(getSymbols("^GSPC", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+data <- data.frame(Date = index(GSPC), 
+                       Open = GSPC[, "GSPC.Open"], 
+                       High = GSPC[, "GSPC.High"], 
+                       Low = GSPC[, "GSPC.Low"], 
+                       Close = GSPC[, "GSPC.Close"])
+colnames(data) <- c("Date", "Open", "High", "Low", "Close")
+
+xau <- read.csv("./data/xau.csv")
+xau$Date <- as.Date(xau$Date)
+
+gsci <- read.csv("./data/gsci.csv")
+gsci$Date <- as.Date(gsci$Date)
+
+house <- read.csv("./data/house.csv", header=TRUE)
+house$time <- as.Date(house$time)
+
+visitors <- read.csv("./data/visitors.csv", header=TRUE)
+visitors$time <- as.Date(visitors$time)
+
+# time series
+dxy_ts <- ts(log(dxy$Close), start=c(2005,1), frequency=252)
+balance_ts <- ts(bea$balance, start=c(2005,1), end=c(2024,3), frequency=4)
+gdp_ts <- ts(gdp$total, start=c(2005,1), end=c(2024,3), frequency=4)
+unem_ts <- ts(log(data_unem$unem), start=c(2005,1), end=c(2023,12), frequency=12)
+cpi_ts <- ts(data_cpi$cpi, start=c(2005,1), end=c(2023,12), frequency=12)
+sp5_ts <- ts(GSPC$GSPC.Close, start=c(2005,1), frequency=252)
+xau_ts <- ts(log(xau$Price), start=c(2005,1), end=c(2024,52), frequency=52)
+gsci_ts <- ts(log(gsci$Price), start=c(2014,252), frequency=252)
+house_ts <- ts(house$index, start=c(2005,1), end=c(2024,4), frequency=4)
+visitors_ts <- ts(log(visitors$count), start=c(2005,1), end=c(2024,12), frequency=12)
+```
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+library(gridExtra)
+
+acf <- ggAcf(diff(dxy_ts), 50)+ggtitle("ACF Plot for USD Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(dxy_ts), 50)+ggtitle("PACF Plot for USD Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## Trade Balance
+
+```{r}
+acf <- ggAcf(diff(diff(balance_ts, lag=4)))+ggtitle("ACF Plot for Trade Balance") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(diff(balance_ts, lag=4)))+ggtitle("PACF Plot for Trade Balance") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## GDP
+
+```{r}
+acf <- ggAcf(diff(gdp_ts))+ggtitle("ACF Plot for GDP") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(gdp_ts))+ggtitle("PACF Plot for GDP") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## Unemployment Rate
+
+```{r}
+acf <- ggAcf(diff(unem_ts))+ggtitle("ACF Plot for Unemployment Rate") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(unem_ts))+ggtitle("PACF Plot for Unemployment Rate") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## CPI
+
+```{r}
+acf <- ggAcf(diff(diff(cpi_ts, lag=12)))+ggtitle("ACF Plot for CPI") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(diff(cpi_ts, lag=12)))+ggtitle("PACF Plot for CPI") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## S&P 500
+
+```{r}
+acf <- ggAcf(diff(sp5_ts), 50)+ggtitle("ACF Plot for S&P 500 Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(sp5_ts), 50)+ggtitle("PACF Plot for S&P 500 Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## Gold Price
+
+```{r}
+acf <- ggAcf(diff(xau_ts), 50)+ggtitle("ACF Plot for Gold Price") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(xau_ts), 50)+ggtitle("PACF Plot for Gold Price") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## Global Commodity Price
+
+```{r}
+acf <- ggAcf(diff(gsci_ts), 50)+ggtitle("ACF Plot for S&P GSCI Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(gsci_ts), 50)+ggtitle("PACF Plot for S&P GSCI Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## House Price
+
+```{r}
+acf <- ggAcf(diff(house_ts))+ggtitle("ACF Plot for House Price Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(house_ts))+ggtitle("PACF Plot for House Price Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+## International Visitors
+
+```{r}
+acf <- ggAcf(diff(diff(visitors_ts, lag=12)))+ggtitle("ACF Plot for Number of International Visitors") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(diff(diff(visitors_ts, lag=12)))+ggtitle("PACF Plot for Number of International Visitors") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+:::
+
+The ACF plot helps determine the q parameter by identifying the number of significant lags in the moving average (MA) component. The PACF plot helps determine the p parameter by identifying the number of significant lags in the autoregressive (AR) component. For seasonal models, ACF and PACF can also be used to determine the seasonal parameters Q and P.
+
+- **U.S. Dollar Index**: ARIMA model, p=0, d=1, q=0.  
+- **Trade Balance**: SARIMA model, p=1, d=1, q=1, P=1 or 2，D=1, Q=1, s=4.  
+- **GDP**: ARIMA model, p=0, d=1, q=0.  
+- **Unemployment Rate**: ARIMA model, p=0 or 1, d=1, q=0 or 1.  
+- **CPI**: SARIMA model, p=1 or 2, d=1, q=1 or 2, P=1 or 2, D=1, Q=1 or 2, s=12.  
+- **S&P 500**: ARIMA model, p=0 or 1 or 4, d=1, q=0:4.  
+- **Gold Price**: ARIMA model, p=0:4, d=1, q=0:4.  
+- **Global Commodity Price**: ARIMA model, p=0:4, d=1, q=0:4.  
+- **House Price**: ARIMA model, p=1 or 3, d=1, q=0:4.  
+- **International Visitors**: SARIMA model, p=1 or 2, d=1, q=1, P=1 or 2, D=1, Q=1, s=12.  
+
+## Model Selection by Manual Search
+
+Write a function
+
+```{r}
+set.seed(123)
+library(kableExtra)
+
+#write a funtion
+ARIMA.c = function(p1, p2, q1, q2, data) {
+  d = 1
+  i = 1
+  temp = data.frame()
+  ls = matrix(rep(NA, 6 * 100), nrow = 100)
+  
+  for (p in p1:p2) {
+    for (q in q1:q2) {
+          if (p + d + q <= 9) {
+            
+            model <- tryCatch({
+              Arima(data, order = c(p, d, q), include.drift = TRUE)
+            }, error = function(e) {
+              return(NULL)
+            })
+            
+            if (!is.null(model)) {
+              ls[i, ] = c(p, d, q, model$aic, model$bic, model$aicc)
+              i = i + 1
+            }
+          }
+        }
+      }
+      temp = as.data.frame(ls)
+      names(temp) = c("p", "d", "q", "AIC", "BIC", "AICc")
+      temp = na.omit(temp)
+      return(temp)
+}
+
+SARIMA.c = function(p1, p2, q1, q2, P1, P2, Q1, Q2, s, data) {
+  d = 1
+  D = 1
+  i = 1
+  temp = data.frame()
+  ls = matrix(rep(NA, 9 * 100), nrow = 100)
+  
+  for (p in p1:p2) {
+    for (q in q1:q2) {
+      for (P in P1:P2) {
+        for (Q in Q1:Q2) {
+          if (p + d + q + P + D + Q <= 9) {
+            
+            model <- tryCatch({
+              Arima(data, order = c(p, d, q), seasonal = list(order = c(P,D,Q), period = s))
+            }, error = function(e) {
+              return(NULL)
+            })
+            
+            if (!is.null(model)) {
+              ls[i, ] = c(p, d, q, P, D, Q, model$aic, model$bic, model$aicc)
+              i = i + 1
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  temp = as.data.frame(ls)
+  names(temp) = c("p", "d", "q", "P", "D", "Q", "AIC", "BIC", "AICc")
+  temp = na.omit(temp)
+  return(temp)
+}
+
+highlight_output = function(output, type="ARIMA") {
+    highlight_row <- c(which.min(output$AIC), which.min(output$BIC), which.min(output$AICc))
+    knitr::kable(output, align = 'c', caption = paste("Comparison of", type, "Models")) %>%
+    kable_styling(full_width = FALSE, position = "center") %>%
+    row_spec(highlight_row, bold = TRUE, background = "#FFFF99")  # Highlight row in yellow
+}
+```
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+output=ARIMA.c(p1=0,p2=3,q1=0,q2=2,data=dxy_ts)
+highlight_output(output)
+```
+
+## Trade Balance
+
+```{r}
+output=SARIMA.c(p1=0, p2=1, q1=0, q2=1, P1=0, P2=3, Q1=0, Q2=1, s=4, data=balance_ts)
+highlight_output(output, type="SARIMA")
+```
+
+## GDP
+
+```{r}
+output=ARIMA.c(p1=0,p2=3,q1=0,q2=3,data=gdp_ts)
+highlight_output(output)
+```
+
+## Unemployment Rate
+
+```{r}
+output=ARIMA.c(p1=0,p2=3,q1=0,q2=3,data=unem_ts)
+highlight_output(output)
+```
+
+## CPI
+
+```{r}
+output=SARIMA.c(p1=0, p2=2, q1=0, q2=2, P1=0, P2=2, Q1=0, Q2=2, s=12, data=cpi_ts)
+highlight_output(output, type="SARIMA")
+```
+
+## S&P 500
+
+```{r}
+output=ARIMA.c(p1=0,p2=4,q1=0,q2=4,data=sp5_ts)
+highlight_output(output)
+```
+
+## Gold Price
+
+```{r}
+output=ARIMA.c(p1=0,p2=4,q1=0,q2=4,data=xau_ts)
+highlight_output(output)
+```
+
+## Global Commodity Price
+
+```{r}
+output=ARIMA.c(p1=0,p2=4,q1=0,q2=4,data=gsci_ts)
+highlight_output(output)
+```
+
+## House Price
+
+```{r}
+output=ARIMA.c(p1=0,p2=4,q1=0,q2=4,data=house_ts)
+highlight_output(output)
+```
+
+## International Visitors
+
+```{r}
+output=SARIMA.c(p1=0, p2=2, q1=0, q2=1, P1=0, P2=3, Q1=0, Q2=1, s=12, data=visitors_ts)
+highlight_output(output, type="SARIMA")
+```
+
+:::
+
+Best model for each time series:
+
+- **U.S. Dollar Index**: ARIMA(0,1,0)  
+- **Trade Balance**: SARIMA(0,1,1)x(0,1,1)[4]  
+- **GDP**: ARIMA(0,1,0)  
+- **Unemployment Rate**: ARIMA(0,1,0) or ARIMA(1,1,1)  
+- **CPI**: SARIMA(1,1,2)x(0,1,1)[12]  
+- **S&P 500**: ARIMA(4,1,4)  
+- **Gold Price**: ARIMA(0,1,0)  
+- **Global Commodity Price**: ARIMA(0,1,0)  
+- **House Price**: ARIMA(3,1,0) or ARIMA(3,1,2)  
+- **International Visitors**: SARIMA(0,1,1)x(0,1,1)[12]  
+
+
+## Model Selection by Auto.arima()
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+auto.arima(dxy_ts)
+```
+
+## Trade Balance
+
+```{r}
+auto.arima(balance_ts)
+```
+
+## GDP
+
+```{r}
+auto.arima(gdp_ts)
+```
+
+## Unemployment Rate
+
+```{r}
+auto.arima(unem_ts)
+```
+
+## CPI
+
+```{r}
+auto.arima(cpi_ts)
+```
+
+## S&P 500
+
+```{r}
+auto.arima(sp5_ts)
+```
+
+## Gold Price
+
+```{r}
+auto.arima(xau_ts)
+```
+
+## Global Commodity Price
+
+```{r}
+auto.arima(gsci_ts)
+```
+
+## House Price
+
+```{r}
+auto.arima(house_ts)
+```
+
+## International Visitors
+
+```{r}
+auto.arima(visitors_ts)
+```
+
+:::
+
+Best model for each time series:
+
+- **U.S. Dollar Index**: ARIMA(1,1,0)  
+- **Trade Balance**: SARIMA(1,0,1)(2,1,0)[4]   
+- **GDP**: ARIMA(0,2,1)  
+- **Unemployment Rate**: ARIMA(0,1,1)  
+- **CPI**: SARIMA(2,2,3)(1,0,0)[12]  
+- **S&P 500**: ARIMA(5,2,0)  
+- **Gold Price**: ARIMA(0,1,0)  
+- **Global Commodity Price**: SARIMA(0,1,0)(1,0,0)[252]  
+- **House Price**: ARIMA(2,2,2)  
+- **International Visitors**: SARIMA(2,0,2)(0,0,2)[12]  
+
+## Model Diagnostics
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+`ARIMA(0,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(dxy_ts, 0,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(1,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(dxy_ts, 1,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+For both `ARIMA(0,1,0)` and `ARIMA(1,1,0)`, the model diagnostics results are very similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, suggesting that the residuals are nearly stationary with a constant mean and finite variance over time.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box Test p-values are below the 0.05 significance level for lags greater than 10, implying that autocorrelations remain in the residuals.
+
+Since the AR(1) term in the `ARIMA(1,1,0)` model is not significant at the 10% level, and the `ARIMA(0,1,0)` model has lower AIC, AICc, and BIC values, we decide to use `ARIMA(0,1,0)` as the optimal model. Moreover, the intercept term of the `ARIMA(0,1,0)` is insignificant.
+
+## Trade Balance
+
+`SARIMA(0,1,1)x(0,1,1)[4]`
+
+```{r}
+model_output <- capture.output(sarima(balance_ts, 0,1,1,0,1,1,4))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`SARIMA(1,0,1)(2,1,0)[4]`
+
+```{r}
+model_output <- capture.output(sarima(balance_ts, 1,0,1,2,1,0,4))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+For both `SARIMA(0,1,1)x(0,1,1)[4]` and `SARIMA(1,0,1)(2,1,0)[4]`, the model diagnostics results are very similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, suggesting that the residuals are nearly stationary with a constant mean and finite variance over time.
+
+The Autocorrelation Function (ACF) of the residuals shows perfect independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box Test p-values are all above the 0.05 significance level, implying no autocorrelations are left in the residuals and concluding that the model is well-fitted.
+
+Coefficient Significance: All model coefficients are significant.
+
+Therefore, we decide to use `SARIMA(0,1,1)x(0,1,1)[4]` as the optimal model, since it has lower AIC, AICc, and BIC.
+
+## GDP
+
+`ARIMA(0,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(gdp_ts, 0,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(0,2,1)`
+
+```{r}
+model_output <- capture.output(sarima(gdp_ts, 0,2,1))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+For both `ARIMA(0,1,0)` and `ARIMA(0,2,1)`, the model diagnostics results are very similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, but there is a significant oscillation in 2020, indicating the need for a more advanced model to account for special events.
+
+The Autocorrelation Function (ACF) of the residuals shows perfect independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box Test p-values are all above the 0.05 significance level, implying no autocorrelations are left in the residuals and concluding that the model is well-fitted.
+
+Since the MA(1) term in the `ARIMA(0,2,1)` model is significant at the 5% level, we decide to use `ARIMA(0,2,1)` as the optimal model.
+
+## Unemployment Rate
+
+`ARIMA(0,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(unem_ts, 0,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(1,1,1)`
+
+```{r}
+model_output <- capture.output(sarima(unem_ts, 1,1,1))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(0,1,1)`
+
+```{r}
+model_output <- capture.output(sarima(unem_ts, 0,1,1))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The model diagnostics results for all three models are similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, but there is a significant oscillation in 2020, indicating the need for a more advanced model to account for special events.
+
+The Autocorrelation Function (ACF) of the residuals shows perfect independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+However, the Ljung-Box test results are different. For the `ARIMA(0,1,0)` model, the Ljung-Box Test p-values after lag 2 are all above the 0.05 significance level. For the other two models, all p-values are above the threshold. This implies that, for the other two models, no autocorrelations remain in the residuals, concluding that the models are well-fitted.
+
+Coefficient Significance: All model coefficients are significant.
+
+Since both the AR(1) and MA(1) terms in the `ARIMA(1,1,1)` model are significant, we choose this model as the optimal one.
+
+## CPI
+
+`SARIMA(1,1,2)x(0,1,1)[12]`
+
+```{r}
+model_output <- capture.output(sarima(cpi_ts, 1,1,2,0,1,1,12))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`SARIMA(2,2,3)(1,0,0)[12]`
+
+```{r}
+model_output <- capture.output(sarima(cpi_ts, 2,2,3,1,0,0,12))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The model diagnostics results for both models are similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, suggesting that the residuals are nearly stationary with a constant mean and finite variance over time.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+However, the Ljung-Box test results and coefficient significance are different. For the `SARIMA(1,1,2)x(0,1,1)[12]` model, the Ljung-Box Test p-values are all above the 0.05 significance level, and all coefficients are significant. For the `SARIMA(2,2,3)(1,0,0)[12]` model, the Ljung-Box Test p-values are above the 0.05 significance level only after lag 20, and the majority of the coefficients are not significant.
+
+Therefore, we choose the `SARIMA(1,1,2)x(0,1,1)[12]` model as the optimal one.
+
+## S&P 500
+
+`ARIMA(4,1,4)`
+
+```{r}
+model_output <- capture.output(sarima(sp5_ts, 4,1,4))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(5,2,0)`
+
+```{r}
+model_output <- capture.output(sarima(sp5_ts, 5,2,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The model diagnostics results for both models are very similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, But the magnitude of the residuals after 2020 is noticeably larger, indicating the need for a more advanced model to account for special events.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box test results for both models are not satisfactory, as they are below the 0.05 significance level. This indicates that autocorrelations remain in the residuals, concluding that the models need improvement.
+
+Coefficient Significance: All model coefficients are significant.
+
+Since the `ARIMA(4,1,4)` model has lower AIC, AICc and BIC, we choose it as the optimal model.
+
+## Gold Price
+
+`ARIMA(0,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(xau_ts, 0,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+This model is chosen by both manual search and `auto.arima()`. The diagnostic results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, suggesting that the residuals are nearly stationary with a constant mean and finite variance over time.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box Test p-values are all above the 0.05 significance level, implying no autocorrelations are left in the residuals and concluding that the model is well-fitted.
+
+Therefore, the `ARIMA(0,1,0)` model is the optimal model.
+
+## Global Commodity Price
+
+`ARIMA(0,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(gsci_ts, 0,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`SARIMA(0,1,0)(1,0,0)[252]`
+
+```{r}
+model_output <- capture.output(sarima(gsci_ts, 0,1,0,1,0,0,252))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The model diagnostics results for both models are similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, but the magnitude of the residuals around 2020 is noticeably larger, indicating the need for a more advanced model to account for special events.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+However, the Ljung-Box test results are different. For the `ARIMA(0,1,0)` model, most of the Ljung-Box Test p-values are all above the 0.05 significance level. For the `SARIMA(0,1,0)(1,0,0)[252]` model, only p-values after lag 100 are above the threshold. This implies that autocorrelations remain in the residuals for the latter model. Moreover, the seasonal AR(1) term of the model is not significant.
+
+Therefore, we choose the `ARIMA(0,1,0)` model as the optimal one.
+
+## House Price
+
+`ARIMA(3,1,0)`
+
+```{r}
+model_output <- capture.output(sarima(house_ts, 3,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(3,1,2)`
+
+```{r}
+model_output <- capture.output(sarima(house_ts, 3,1,2))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`ARIMA(2,2,2)`
+
+```{r}
+model_output <- capture.output(sarima(house_ts, 2,2,2))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The model diagnostics results for all three models are similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, but there is a significant oscillation in 2020, indicating the need for a more advanced model to account for special events.
+
+The Autocorrelation Function (ACF) of the residuals shows perfect independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+However, the Ljung-Box test results are different. For the `ARIMA(3,1,0)` model, the Ljung-Box Test p-values after lag 6 are all above the 0.05 significance level. For the other two models, all p-values are above the threshold. This implies that, for the other two models, no autocorrelations remain in the residuals, concluding that the models are well-fitted.
+
+Coefficient significance: For the `ARIMA(3,1,0)` model, all three coefficients are significant. For the `ARIMA(3,1,2)` model, only the coefficient of the MA1 term is insignificant, while all other four are significant. For the `ARIMA(2,2,2)` model, only the coefficient of the AR2 term is significant, with the other three coefficients insignificant.
+
+Therefore, we choose the `ARIMA(3,1,2)` model as the optimal one.
+
+## International Visitors
+
+`SARIMA(0,1,1)x(0,1,1)[12]`
+
+```{r}
+model_output <- capture.output(sarima(visitors_ts, 0,1,1,0,1,1,12))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+`SARIMA(2,0,2)(0,0,2)[12]`
+
+```{r}
+model_output <- capture.output(sarima(visitors_ts, 2,0,2,0,0,2,12))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The model diagnostics results for both models are similar. The results are as follows:
+
+The Residual Plot shows nearly consistent fluctuation around zero, but there is a significant oscillation in 2020, indicating the need for a more advanced model to account for special events.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+However, the Ljung-Box test results are different. For the `SARIMA(0,1,1)x(0,1,1)[12]` model, the Ljung-Box Test p-values are all above the 0.05 significance level. For the `SARIMA(2,0,2)(0,0,2)[12]` model, all p-values are below the threshold.
+
+Therefore, we choose the `SARIMA(0,1,1)x(0,1,1)[12]` model as the optimal model, where all coefficients are significant.
+
+:::
+
+The equation of the best model for each time series:
+
+- **U.S. Dollar Index**:  
+
+`ARIMA(0,1,0)`  
+$$
+(1-B) x_t= w_t
+$$
+
+where $x_t$ is the original time series and $w_t$ is the Gaussian white noise process.
+
+- **Trade Balance**:  
+
+`SARIMA(0,1,1)x(0,1,1)[4]`
+$$
+\left(1-B^{4}\right)(1-B) x_t=\Theta (B^{4}) \theta (B) w_t
+$$
+
+where
+$$
+\begin{align}
+\Theta(B^4) &= 1 + 0.3818B^{4} \\
+\theta(B) &= 1 -B
+\end{align}
+$$
+
+- **GDP**:  
+
+`ARIMA(0,2,1)`  
+$$
+(1-B)^2 x_t=\theta (B) w_t
+$$
+
+where
+$$
+\theta(B) = 1 -0.921B
+$$
+
+- **Unemployment Rate**:  
+
+`ARIMA(1,1,1)`  
+$$
+\phi (B) (1-B) x_t=\theta (B) w_t
+$$
+
+where
+$$
+\begin{align}
+\phi (B) &= 1 + 0.5485 B \\
+\theta(B) &= 1 + 0.6962 B
+\end{align}
+$$
+
+- **CPI**:  
+
+`SARIMA(1,1,2)x(0,1,1)[12]`  
+$$
+\phi(B) \left(1-B^{12}\right)(1-B) x_t=\Theta (B^{12}) \theta (B) w_t
+$$
+
+where
+$$
+\begin{align}
+\phi (B) &= 1 -0.9485 B \\
+\Theta(B^{12}) &= 1 - 0.9915 B^{12} \\
+\theta(B) &= 1 -0.3778 B -0.4161 B^{2}
+\end{align}
+$$
+
+- **S&P 500**:  
+
+`ARIMA(4,1,4)`
+$$
+\phi (B) (1-B) x_t=\theta (B) w_t + \mu
+$$
+
+where
+$$
+\begin{align}
+\mu &= 0.9567 \\
+\phi (B) &= 1 + 0.2465 B - 0.7864 B^2 + 0.3998 B^3 + 0.8560 B^4\\
+\theta(B) &= 1 + 0.1942 B - 0.7627 B^2 + 0.4428 B^3 + 0.7686 B^4
+\end{align}
+$$
+
+- **Gold Price**:  
+
+`ARIMA(0,1,0)`  
+$$
+(1-B) x_t= w_t + \mu \quad \quad \quad where \quad \mu=0.0018 
+$$
+
+- **Global Commodity Price**:  
+
+`ARIMA(0,1,0)`  
+$$
+(1-B) x_t= w_t
+$$
+
+- **House Price**:  
+
+`ARIMA(3,1,2)`
+$$
+\phi (B) (1-B) x_t=\theta (B) w_t + \mu
+$$
+
+where
+$$
+\begin{align}
+\mu &= 5.3341 \\
+\phi (B) &= 1 - 0.7153 B + 0.6927 B^2 - 0.7350 B^3 \\
+\theta(B) &= 1 + 0.1982 B + 0.3248 B^2
+\end{align}
+$$
+
+- **International Visitors**:  
+
+`SARIMA(0,1,1)x(0,1,1)[12]`  
+$$
+\left(1-B^{12}\right)(1-B) x_t=\Theta (B^{12}) \theta (B) w_t
+$$
+
+where
+$$
+\begin{align}
+\Theta(B^{12}) &= 1 - 1.0000 B^{12} \\
+\theta(B) &= 1 + 0.2515 B
+\end{align}
+$$
+
+## Forecaseting
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+fit <- Arima(dxy_ts, order = c(0,1,0), include.drift = TRUE)
+forecast_result <- forecast(fit, h = 252)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(0,1,0) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## Trade Balance
+
+```{r}
+fit <- Arima(balance_ts, order = c(0,1,1), seasonal = list(order = c(0,1,1), period = 4))
+forecast_result <- forecast(fit, h = 8)
+autoplot(forecast_result) +
+  labs(title = "SARIMA(0,1,1)x(0,1,1)[4] Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## GDP
+
+```{r}
+fit <- Arima(gdp_ts, order = c(0,2,1))
+forecast_result <- forecast(fit, h = 12)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(0,2,1) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## Unemployment Rate
+
+```{r}
+fit <- Arima(unem_ts, order = c(1,1,1))
+forecast_result <- forecast(fit, h = 12)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(1,1,1) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## CPI
+
+```{r}
+fit <- Arima(cpi_ts, order = c(1,1,2), seasonal = list(order = c(0,1,1), period = 12))
+forecast_result <- forecast(fit, h = 36)
+autoplot(forecast_result) +
+  labs(title = "SARIMA(1,1,2)X(0,1,1)[12] Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## S&P 500
+
+```{r}
+fit <- Arima(sp5_ts, order = c(4,1,4), include.drift=TRUE)
+forecast_result <- forecast(fit, h = 252)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(4,1,4) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## Gold Price
+
+```{r}
+fit <- Arima(xau_ts, order = c(0,1,0), include.drift=TRUE)
+forecast_result <- forecast(fit, h = 52)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(0,1,0) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## Global Commodity Price
+
+```{r}
+fit <- Arima(gsci_ts, order = c(0,1,0), include.drift=TRUE)
+forecast_result <- forecast(fit, h = 252)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(0,1,0) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## House Price
+
+```{r}
+fit <- Arima(house_ts, order = c(3,1,2))
+forecast_result <- forecast(fit, h = 12)
+autoplot(forecast_result) +
+  labs(title = "ARIMA(3,1,2) Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+## International Visitors
+
+```{r}
+fit <- Arima(visitors_ts, order = c(0,1,1), seasonal = list(order = c(0,1,1), period = 12))
+forecast_result <- forecast(fit, h = 36)
+autoplot(forecast_result) +
+  labs(title = "SARIMA(0,1,1)X(0,1,1)[12] Forecast",
+       x = "Time",
+       y = "Predicted Values") +
+  theme_minimal()
+```
+
+:::
+
+The forecast plots for all series show that our optimal models perform well. The confidence intervals, shown in the shaded blue area, represent the range within which the time series are expected to move. The widening of these intervals as the forecast period extends reflects increasing uncertainty.
+
+## Comparison with Benchmark Methods
+
+Write a function
+
+```{r}
+plot_forecasts <- function(forecast_result, ts, h, fit) {
+  print(accuracy(forecast_result))  
+  # Plot the forecasts using Mean, Naïve, Drift Methods, and ARIMA Fit
+  autoplot(ts) +
+    autolayer(meanf(ts, h = h), series = "Mean", PI = FALSE) +
+    autolayer(naive(ts, h = h), series = "Naïve", PI = FALSE) +
+    autolayer(snaive(ts, h = h), series = "SNaïve", PI = FALSE) +
+    autolayer(rwf(ts, drift = TRUE, h = h), series = "Drift", PI = FALSE) +
+    autolayer(forecast(fit, h = h), series = "Fit", PI = FALSE) +
+    xlab("Date") + 
+    ylab("Predicted Values") +
+    guides(colour = guide_legend(title = "Forecast Methods")) +
+    theme_minimal()
+}
+```
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+fit <- Arima(dxy_ts, order = c(0,1,0), include.drift = TRUE)
+forecast_result <- forecast(fit, h = 252)
+plot_forecasts(forecast_result, dxy_ts, 252, fit)
+```
+
+## Trade Balance
+
+```{r}
+fit <- Arima(balance_ts, order = c(0,1,1), seasonal = list(order = c(0,1,1), period = 4))
+forecast_result <- forecast(fit, h = 8)
+plot_forecasts(forecast_result, balance_ts, 8, fit)
+```
+
+## GDP
+
+```{r}
+fit <- Arima(gdp_ts, order = c(0,2,1))
+forecast_result <- forecast(fit, h = 12)
+plot_forecasts(forecast_result, gdp_ts, 12, fit)
+```
+
+## Unemployment Rate
+
+```{r}
+fit <- Arima(unem_ts, order = c(1,1,1))
+forecast_result <- forecast(fit, h = 12)
+plot_forecasts(forecast_result, unem_ts, 12, fit)
+```
+
+## CPI
+
+```{r}
+fit <- Arima(cpi_ts, order = c(1,1,2), seasonal = list(order = c(0,1,1), period = 12))
+forecast_result <- forecast(fit, h = 36)
+plot_forecasts(forecast_result, cpi_ts, 36, fit)
+```
+
+## S&P 500
+
+```{r}
+fit <- Arima(sp5_ts, order = c(4,1,4), include.drift=TRUE)
+forecast_result <- forecast(fit, h = 252)
+plot_forecasts(forecast_result, sp5_ts, 252, fit)
+```
+
+## Gold Price
+
+```{r}
+fit <- Arima(xau_ts, order = c(0,1,0), include.drift=TRUE)
+forecast_result <- forecast(fit, h = 52)
+plot_forecasts(forecast_result, xau_ts, 52, fit)
+```
+
+## Global Commodity Price
+
+```{r}
+fit <- Arima(gsci_ts, order = c(0,1,0), include.drift=TRUE)
+forecast_result <- forecast(fit, h = 252)
+plot_forecasts(forecast_result, gsci_ts, 252, fit)
+```
+
+## House Price
+
+```{r}
+fit <- Arima(house_ts, order = c(3,1,2))
+forecast_result <- forecast(fit, h = 12)
+plot_forecasts(forecast_result, house_ts, 12, fit)
+```
+
+## International Visitors
+
+```{r}
+fit <- Arima(visitors_ts, order = c(0,1,1), seasonal = list(order = c(0,1,1), period = 12))
+forecast_result <- forecast(fit, h = 36)
+plot_forecasts(forecast_result, visitors_ts, 36, fit)
+```
+
+:::
+
+Our models generally outperform the benchmark methods, although sometimes the Naïve method better predicts seasonality. By comparing the forecast results of our model with those benchmark methods, it is clear that our model offers more precise and reliable predictions. The accuracy metrics (ME, RMSE, MAE, MPE, MAPE, MASE, ACF1) further confirm the superiority of our model, making it the optimal choice for forecasting in this case.

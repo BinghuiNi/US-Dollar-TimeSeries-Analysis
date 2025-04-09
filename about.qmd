@@ -1,0 +1,29 @@
+---
+title: "About Me"
+---
+
+## Background
+
+<p align="center">
+  <img src="./img/me.jpg" height="600">
+</p>
+
+Hi! My name is Binghui Ni. I am a first-year student in the Data Science and Analytics program at Georgetown University. And my undergraduate degree is a B.S. in Economics from Central University of Finance and Economics. All of my experiences have fueled my desire to learn about various aspects of data science, especially time series. I am excited to complete this course and gain a breadth of time series knowledge.
+
+## Education
+
+- 2024: M.S. in Data Sicence at Georgetown University
+- 2020: B.S. in Economics at Central University of Finance and Economics 
+
+
+## Academic Interests
+
+- Financial Analysis
+- Prediction Analysis
+- LLM in Medical Insurance Policy Field
+- Other Emerging Fields
+
+## Contact
+
+- Net ID: BN259
+- GU Email: bn259@georgetown.edu

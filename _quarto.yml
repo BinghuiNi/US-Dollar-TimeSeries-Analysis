@@ -1,0 +1,52 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Dynamics of the U.S. Dollar Index"
+  navbar:
+    search: true
+    right:
+      - icon: github
+        href: https://github.com/BinghuiNi/US-Dollar-TimeSeries-Analysis
+        aria-label: GitHub
+
+  sidebar:
+    style: "docked"
+    contents:
+      - href: index.qmd
+        text: Home
+      - href: about.qmd
+        text: About Me
+      - href: introduction.qmd
+        text: Introduction
+      - href: data_sources.qmd
+        text: Data Sources
+      - href: dv.qmd
+        text: Data Visualization
+      - href: eda.qmd
+        text: EDA
+      - href: univariate_ts_models.qmd
+        text: Univariate TS Models (ARIMA/SARIMA)
+      - href: multivariate_ts_models.qmd
+        text: Multivariate TS Models (ARIMAX/SARIMAX/VAR)
+      - href: financial_ts_models.qmd
+        text: Financial TS Models (ARCH/GARCH)
+      - href: deep_learning_for_ts.qmd
+        text: Deep Learning for TS
+      - href: other_analysis.qmd
+        text: "Other: Interrupted TS/ARFIMA/ Spectral Analysis"
+      - href: conclusions.qmd
+        text: Conclusions
+
+
+  
+format:
+  html:
+    theme: zephyr
+    css: styles.css
+    toc: true
+    sidebar: left
+    bibliography:   ./assets/reference.bib
+    csl:  ./assets/nature.csl
+

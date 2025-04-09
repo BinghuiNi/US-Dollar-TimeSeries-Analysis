@@ -1,0 +1,969 @@
+---
+title: "Exploratory Data Analysis"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+execute:
+    echo: true
+    warning: false
+    message: false
+---
+
+## 1. Time Series Plot
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(quantmod)
+
+invisible(getSymbols("DX-Y.NYB", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+dxy <- data.frame(Date = index(`DX-Y.NYB`), 
+                       Open = `DX-Y.NYB`[, "DX-Y.NYB.Open"], 
+                       High = `DX-Y.NYB`[, "DX-Y.NYB.High"], 
+                       Low = `DX-Y.NYB`[, "DX-Y.NYB.Low"], 
+                       Close = `DX-Y.NYB`[, "DX-Y.NYB.Close"])
+dxy <- na.omit(dxy)
+colnames(dxy) <- c("Date", "Open", "High", "Low", "Close")
+
+gg <- ggplot(data = dxy, aes(x = Date, y = Close)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", title = "Trend of U.S. Dollar Index")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The time series plot of the U.S. Dollar Index reveals a general upward trend, indicating that the value of the U.S. Dollar has been appreciating over time. Despite the presence of trend and weak seasonal patterns, the data does not show clear periodic fluctuations across different years. Based on the observation, I preliminarily consider that the U.S. Dollar Index may follow a multiplicative model. This approach may better capture the dynamic nature of the index's fluctuations.
+
+## Trade Balance
+
+```{r}
+bea <- read.csv("./data/bea.csv")
+bea$time <- as.Date(bea$time)
+
+gg <- ggplot(bea) + 
+  geom_line(aes(x = time, y = balance/1000), color = "purple") +
+  labs(x = "Year", y = "Billions of Dollars", 
+  title = "Trends of Trade Balance")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The time series plot of the trade balance shows a strong seasonality, with July being the lowest month each year and January being the highest. This pattern may be due to factors such as seasonal fluctuations in demand and supply, where imports tend to increase during the holiday season in December, leading to a higher trade deficit in January. On the other hand, July may see a dip in trade activity due to summer holidays, reduced production, and lower consumer demand.
+
+## GDP
+
+```{r}
+gdp <- read.csv("./data/gdp.csv")
+gdp$time <- as.Date(gdp$time)
+gdp$total <- gdp$consumption + gdp$investment + gdp$net_export + gdp$government
+gg <- ggplot(data = gdp, aes(x = time, y = total)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Billions of Dollars", title = "GDP Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The time series plot of GDP shows a steady increasing trend. Since the raw data we extracted from the [BEA](https://apps.bea.gov/iTable/?reqid=19&step=2&isuri=1&categories=survey&_gl=1*8j2fjp*_ga*NDE0NjMxMDI1LjE3MzgwOTQyNDE.*_ga_J4698JNNFT*MTczODE4MjUyNC4zLjEuMTczODE4NTMzNC43LjAuMA..#eyJhcHBpZCI6MTksInN0ZXBzIjpbMSwyLDMsM10sImRhdGEiOltbImNhdGVnb3JpZXMiLCJTdXJ2ZXkiXSxbIk5JUEFfVGFibGVfTGlzdCIsIjUiXSxbIkZpcnN0X1llYXIiLCIyMDA1Il0sWyJMYXN0X1llYXIiLCIyMDI0Il0sWyJTY2FsZSIsIi05Il0sWyJTZXJpZXMiLCJRIl1dfQ==) is seasonally adjusted at annual rates, there is no noticeable seasonality in the data. Given this, I preliminarily consider the time series to follow an additive model, where the trend is consistent over time and the variations are not influenced by seasonal patterns. This additive model helps capture the general growth trajectory without the need for seasonal adjustments.
+
+## Unemployment Rate
+
+```{r}
+data_unem <- read.csv("./data/unem.csv", header=TRUE)
+data_unem$time <- as.Date(data_unem$time)
+gg <- ggplot(data = data_unem, aes(x = time, y = unem)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Rate", title = "U.S. Unemployment Rate Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The unemployment rate shows a significant increase over time, indicating both an upward trend and noticeable seasonality. Given the siginificant trend and potential skewness in the data, it may be beneficial to apply a log-transformation for further analysis. This transformation can help stabilize the variance, reduce the impact of extreme values, and make the data more suitable for modeling, particularly when examining long-term trends or conducting forecasting tasks.
+
+## CPI
+
+```{r}
+data_cpi <- read.csv("./data/cpi.csv", header=TRUE)
+data_cpi$time <- as.Date(data_cpi$time)
+gg <- ggplot(data = data_cpi, aes(x = time, y = cpi)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Index", title = "U.S. CPI Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The Consumer Price Index (CPI) also exhibits an upward trend, reflecting the general increase in the cost of living over time. In addition to the trend, there is clear seasonality, with periodic fluctuations occurring at regular intervals throughout the year. Given the consistent nature of these variations, I preliminarily consider the CPI to follow an additive model, where the fluctuations are constant across all levels of the trend. This approach assumes that the seasonal effects do not vary in magnitude as the overall index value changes, making it suitable for capturing the patterns of inflation within the data.
+
+## S&P 500
+
+```{r}
+getSymbols("^GSPC", src = "yahoo", from = "2005-01-01", to = "2024-12-31") 
+data <- data.frame(Date = index(GSPC), 
+                       Open = GSPC[, "GSPC.Open"], 
+                       High = GSPC[, "GSPC.High"], 
+                       Low = GSPC[, "GSPC.Low"], 
+                       Close = GSPC[, "GSPC.Close"])
+colnames(data) <- c("Date", "Open", "High", "Low", "Close")
+
+gg <- ggplot(data = data, aes(x = Date, y = Close)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Index", title = "S&P 500 Index Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The S&P 500 index displays a clear overall upward trend, reflecting the long-term growth of the stock market. However, like some other financial indicators, it does not show clear seasonality or periodic fluctuations across years. The lack of consistent cyclical patterns suggests that the S&P 500 index may not be significantly influenced by regular seasonal effects. Given this, I preliminarily consider the S&P 500 index to follow an additive model. This model allows for capturing the general market growth while assuming that the variations in the index are not driven by seasonal or periodic factors.
+
+## Gold Price
+
+```{r}
+xau <- read.csv("./data/xau.csv")
+xau$Date <- as.Date(xau$Date)
+gg <- ggplot(data = xau, aes(x = Date, y = Price)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Dollar ($)", title = "Spot Gold in US Dollar")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The plot of spot gold prices shows a clear upward trend, reflecting the long-term increase in gold prices. In addition to the overall trend, there is noticeable annual seasonality, indicating that gold prices exhibit periodic fluctuations that repeat each year. Given that the magnitude of the fluctuations appears to vary depending on the level of the trend, I preliminarily consider the gold price data to follow a multiplicative model.
+
+## Global Commodity Price
+
+```{r}
+gsci <- read.csv("./data/gsci.csv")
+gsci$Date <- as.Date(gsci$Date)
+gg <- ggplot(data = gsci, aes(x = Date, y = Price)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Dollar ($)", title = "S&P GSCI Index (USD) Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The plot of GSCI Global Commidity Price Index shows a clear trend, reflecting the long-term changes in commidity prices. In addition to the overall trend, there is noticeable annual seasonality, indicating that commodity prices exhibit periodic fluctuations that repeat each year. Given that the magnitude of the fluctuations appears to vary depending on the level of the trend, I preliminarily consider the index to follow a multiplicative model.
+
+## House Price
+
+```{r}
+house <- read.csv("./data/house.csv", header=TRUE)
+house$time <- as.Date(house$time)
+
+gg <- ggplot(data = house, aes(x = time, y = index)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Index", title = "House Price Index Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The House Price Index shows a clear overall upward trend, indicating that home prices have generally been rising over time. However, unlike some other economic indicators, the data does not exhibit clearly periodic fluctuations across years, suggesting that seasonal patterns or cyclical variations are not prominent. The plot appears to be very smooth, with minimal volatility, reflecting a stable growth pattern. Given this, I preliminarily consider the House Price Index to follow a additive model.
+
+## International Visitors
+
+```{r}
+visitors <- read.csv("./data/visitors.csv", header=TRUE)
+visitors$time <- as.Date(visitors$time)
+
+gg <- ggplot(data = visitors, aes(x = time, y = count)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Number of Visitors", title = "Non-U.S. Resident Visitor Arrivals to the U.S.")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The data on visitor arrivals to the United States shows a clear seasonal pattern, with noticeable peaks and troughs occurring at regular intervals throughout the year. From 2005 to 2020, there is a stable, gradual increase in the number of visitors, suggesting steady growth over time. Given the consistent nature of the seasonal fluctuations and the overall steady increase, I preliminarily consider the data to follow an additive model. This model assumes that the seasonal variations remain constant across different levels of the overall trend, meaning that the same seasonal effect is added to the trend, regardless of the time period.
+
+:::
+
+Based on the time series plots above, we apply log transformation to the following variables: `USD Index`, `Unemployment Rate`, `Gold Price`, `Global Commodity Price`, and `Number of International Visitors`. This transformation is used to stabilize variance, reduce skewness, and better model the growth patterns in these variables. Taking the logarithm helps to linearize exponential growth trends, especially for variables like `Unemployment Rate` and `Gold Price`, which exhibit high volatility or nonlinear behavior.
+
+## 2. Lag plot
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+library(forecast)
+
+dxy_ts <- ts(log(dxy$Close), start=c(2005,1), frequency=252)
+balance_ts <- ts(bea$balance, start=c(2005,1), end=c(2024,3), frequency=4)
+gdp_ts <- ts(gdp$total, start=c(2005,1), end=c(2024,3), frequency=4)
+unem_ts <- ts(log(data_unem$unem), start=c(2005,1), end=c(2023,12), frequency=12)
+cpi_ts <- ts(data_cpi$cpi, start=c(2005,1), end=c(2023,12), frequency=12)
+sp5_ts <- ts(GSPC$GSPC.Close, start=c(2005,1), frequency=252)
+xau_ts <- ts(log(xau$Price), start=c(2005,1), end=c(2024,52), frequency=52)
+gsci_ts <- ts(log(gsci$Price), start=c(2014,252), frequency=252)
+house_ts <- ts(house$index, start=c(2005,1), end=c(2024,4), frequency=4)
+visitors_ts <- ts(log(visitors$count), start=c(2005,1), end=c(2024,12), frequency=12)
+
+gglagplot(dxy_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("USD Index") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+From the lag plot, we can observe that the U.S. Dollar Index exhibits a strong positive autocorrelation, indicating that past values are highly correlated with future values. Even at lag 16, the autocorrelation remains high, suggesting that the influence of previous data points continues to affect current values over an extended period. This persistence indicates that the U.S. Dollar Index follows a sustained trend, with momentum carrying forward from one period to the next. Such behavior is typical in financial time series, where long-term trends can be heavily influenced by past performance, reinforcing the continuation of the observed pattern.
+
+## Trade Balance
+
+```{r}
+gglagplot(balance_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("Balance") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the trade balance shows that the points for the first three lags are tightly aligned along the 45-degree diagonal, indicating strong positive autocorrelation. Starting from lag 4, the points gradually disperse, suggesting that the impact of past values weakens over time. Additionally, the clustering of points in the first lag (quarterly) indicates seasonality, with certain quarters showing similar trade balance patterns.
+
+## GDP
+
+```{r}
+gglagplot(gdp_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("GDP") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+From the lag plot, we can see that the GDP data shows perfect positive autocorrelation in the first three lags, which gradually weakens as the lags increase. Additionally, data points from different quarters are clustered together, indicating that there is no clear seasonal pattern in the serial correlation. This suggests that while past values have a strong influence on future values in the short term, the impact diminishes over time.
+
+## Unemployment Rate
+
+```{r}
+gglagplot(unem_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("Unem Rate") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+From the lag plot, we can see that the GDP data shows strong positive autocorrelation in the first three lags, which gradually weakens as the lags increase. Additionally, data points from different quarters are clustered together, indicating that there is no clear seasonal pattern in the serial correlation. This suggests that while past values have a strong influence on future values in the short term, the impact diminishes over time.
+
+## CPI
+
+```{r}
+gglagplot(cpi_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("CPI") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the CPI data shows perfect positive autocorrelation for the first 7 lags, indicating a strong relationship between past and current values. Even at lag 16, the autocorrelation remains relatively high, suggesting that the influence of past values persists over a longer period. This indicates a sustained trend in the CPI data, where previous values continue to have a notable impact on future values.
+
+## S&P 500
+
+```{r}
+gglagplot(sp5_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("Index") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the S&P 500 index shows perfect positive autocorrelation up to lag 16, indicating that past values are strongly correlated with future values over an extended period. Financial data, like the S&P 500, often exhibit such behavior due to the presence of a unit root, which implies that the time series is non-stationary and tends to follow a random walk. As a result, financial data generally shows long-lasting autocorrelation, where shocks or changes in the data persist over time.
+
+## Gold Price
+
+```{r}
+gglagplot(xau_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("Gold Price") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the Spot Gold Price shows perfect positive autocorrelation up to lag 16, indicating that past values are strongly correlated with future values over an extended period. Financial data often exhibit such behavior due to the presence of a unit root, which implies that the time series is non-stationary and tends to follow a random walk. As a result, financial data generally shows long-lasting autocorrelation, where shocks or changes in the data persist over time.
+
+## Global Commodity Price
+
+```{r}
+gglagplot(gsci_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("S&P GSCI Index") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the S&P GSCI Index shows perfect positive autocorrelation up to lag 16, indicating that past values are strongly correlated with future values over an extended period. Financial data often exhibit such behavior due to the presence of a unit root, which implies that the time series is non-stationary and tends to follow a random walk. As a result, financial data generally shows long-lasting autocorrelation, where shocks or changes in the data persist over time.
+
+## House Price
+
+```{r}
+gglagplot(house_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("House Price") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the House Price Index shows perfect positive autocorrelation at lag 1, indicating a strong influence of the previous period on the current value. However, as the lags increase, the autocorrelation gradually weakens, suggesting that the impact of past values diminishes over time. This means that short-term trends in house prices are closely linked to previous values, but the relationship becomes weaker as time moves forward.
+
+## International Visitors
+
+```{r}
+gglagplot(visitors_ts, do.lines=FALSE) +
+          xlab("Lags")+ylab("Number of Visitors") +
+          theme(axis.text.x=element_text(angle=45, hjust=1))
+```
+
+The lag plot of the number of international visitors shows strong autocorrelation in the first four lags, but this correlation gradually weakens as the lags increase. Monthly seasonality is not very noticeable in the plot, possibly because the points are clustered together, making it harder to detect clear seasonal patterns. This suggests that while past values influence the current data for the short term, the effect diminishes over time.
+
+:::
+
+## 3. Decomposition
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+decomposed <- decompose(dxy_ts)
+autoplot(decomposed, main = "Decomposition Plot for U.S. Dollar Index")
+```
+
+## Trade Balance
+
+```{r}
+decomposed <- decompose(balance_ts)
+autoplot(decomposed, main = "Decomposition Plot for Trade Balance")
+```
+
+## GDP
+
+```{r}
+decomposed <- decompose(gdp_ts)
+autoplot(decomposed, main = "Decomposition Plot for GDP")
+```
+
+## Unemployment Rate
+
+```{r}
+decomposed <- decompose(unem_ts)
+autoplot(decomposed, main = "Decomposition Plot for Unemployment Rate")
+```
+
+## CPI
+
+```{r}
+decomposed <- decompose(cpi_ts)
+autoplot(decomposed, main = "Decomposition Plot for CPI")
+```
+
+## S&P 500
+
+```{r}
+decomposed <- decompose(sp5_ts)
+autoplot(decomposed, main = "Decomposition Plot for S&P 500 Index")
+```
+
+## Gold Price
+
+```{r}
+decomposed <- decompose(xau_ts)
+autoplot(decomposed, main = "Decomposition Plot for Gold Price")
+```
+
+
+## Global Commodity Price
+
+```{r}
+decomposed <- decompose(gsci_ts)
+autoplot(decomposed, main = "Decomposition Plot for S&P GSCI Index")
+```
+
+## House Price
+
+```{r}
+decomposed <- decompose(house_ts)
+autoplot(decomposed, main = "Decomposition Plot for House Price Index")
+```
+
+## International Visitors
+
+```{r}
+decomposed <- decompose(visitors_ts)
+autoplot(decomposed, main = "Decomposition Plot for Number of Visitors")
+```
+
+:::
+
+For all of the data series, these decomposition plots generally align with the conclusions we discussed earlier. They confirm the observed trends, seasonality, and the diminishing impact of past values over time. The decompositions help to visualize the underlying components of each series, such as the trend, seasonality, and residuals, further supporting our initial analysis of the data patterns.
+
+## 4. ACF and PACF Plots
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+library(gridExtra)
+
+acf <- ggAcf(dxy_ts)+ggtitle("ACF Plot for USD Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(dxy_ts)+ggtitle("PACF Plot for USD Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot for the USD Index shows a very slow decay over time, indicating that the autocorrelation remains high across many lags. The PACF plot, on the other hand, shows a significant value only at lag 1, with the values rapidly approaching zero after that. This suggests that the U.S. Dollar Index time series is non-stationary, likely exhibiting a unit root. Such behavior is typical for financial data, where past values have a lasting influence on future values, reflecting the persistent nature of trends in these types of series.
+
+## Trade Balance
+
+```{r}
+acf <- ggAcf(balance_ts)+ggtitle("ACF Plot for Trade Balance") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(balance_ts)+ggtitle("PACF Plot for Trade Balance") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot for the trade balance shows significant autocorrelation even at lag 12, indicating a long-lasting influence. The PACF plot reveals significant values at lags 1, 3, and 7, suggesting partial relationships at these specific lags.
+
+## GDP
+
+```{r}
+acf <- ggAcf(gdp_ts)+ggtitle("ACF Plot for GDP") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(gdp_ts)+ggtitle("PACF Plot for GDP") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot shows a very slow decay over time, meaning autocorrelation remains high for many lags and decays very slowly towards zero. The PACF plot shows a significant value at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the GDP time series is non-stationary, and it may be unit root non-stationary.
+
+## Unemployment Rate
+
+```{r}
+acf <- ggAcf(unem_ts)+ggtitle("ACF Plot for Unemployment Rate") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(unem_ts)+ggtitle("PACF Plot for Unemployment Rate") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot shows a very slow decay over time, meaning autocorrelation remains high for many lags and decays very slowly towards zero. The PACF plot shows a significant value at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the Unemployment Rate time series is non-stationary, and it may be unit root non-stationary.
+
+## CPI
+
+```{r}
+acf <- ggAcf(cpi_ts)+ggtitle("ACF Plot for CPI") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(cpi_ts)+ggtitle("PACF Plot for CPI") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot shows a very slow decay over time, meaning autocorrelation remains high for many lags and decays very slowly towards zero. The PACF plot shows a significant value at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the CPI time series is non-stationary, and it may be unit root non-stationary.
+
+## S&P 500
+
+```{r}
+acf <- ggAcf(sp5_ts)+ggtitle("ACF Plot for S&P 500 Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(sp5_ts)+ggtitle("PACF Plot for S&P 500 Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot shows a very slow decay over time, meaning autocorrelation remains high for many lags and decays very slowly towards zero. The PACF plot shows a significant value at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the S&P Index is non-stationary, and it may be unit root non-stationary.
+
+## Gold Price
+
+```{r}
+acf <- ggAcf(xau_ts)+ggtitle("ACF Plot for Gold Price") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(xau_ts)+ggtitle("PACF Plot for Gold Price") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot shows a very slow decay over time, meaning autocorrelation remains high for many lags and decays very slowly towards zero. The PACF plot shows a significant value at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the Gold Price time series is non-stationary, and it may be unit root non-stationary.
+
+## Global Commodity Price
+
+```{r}
+acf <- ggAcf(gsci_ts)+ggtitle("ACF Plot for S&P GSCI Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(gsci_ts)+ggtitle("PACF Plot for S&P GSCI Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot shows a very slow decay over time, meaning autocorrelation remains high for many lags and decays very slowly towards zero. The PACF plot shows a sharp drop at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the S&P GSCI Index is non-stationary, and it may be unit root non-stationary.
+
+## House Price
+
+```{r}
+acf <- ggAcf(house_ts)+ggtitle("ACF Plot for House Price Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(house_ts)+ggtitle("PACF Plot for House Price Index") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot for the house price remains significant up to lag 16, indicating a long-lasting influence over a considerable number of lags. The PACF plot shows a significant value at lag 1, and then the values will rapidly approach zero. Only the first lag is significant, and the rest are close to zero. This indicates that the house price time series is non-stationary, and it may be unit root non-stationary.
+
+## International Visitors
+
+```{r}
+acf <- ggAcf(visitors_ts)+ggtitle("ACF Plot for Number of International Visitors") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+pacf <- ggPacf(visitors_ts)+ggtitle("PACF Plot for Number of International Visitors") + theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(acf, pacf, nrow=2)
+```
+
+The ACF plot for the number of international visitors remains significant up to lag 16, indicating a long-lasting influence over a considerable number of lags. The PACF plot reveals significant values at lag 1 and a few other lags, suggesting partial relationships at these specific points. This indicates that the house price time series is non-stationary, and it may be unit root non-stationary.
+
+:::
+
+Overall, all variables exhibit significant autocorrelation, suggesting that the time series are non-stationary. To make the series stationary, we will need to apply techniques like detrending or differencing. These methods can help remove long-term trends or seasonality, ensuring the data becomes stationary, which is crucial for reliable modeling and forecasting.
+
+## 5. Augmented Dickey-Fuller Test
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+library(tseries)
+adf.test(dxy_ts)
+```
+
+## Trade Balance
+
+```{r}
+adf.test(balance_ts)
+```
+
+## GDP
+
+```{r}
+adf.test(gdp_ts)
+```
+
+## Unemployment Rate
+
+```{r}
+adf.test(unem_ts)
+```
+
+## CPI
+
+```{r}
+adf.test(cpi_ts)
+```
+
+## S&P 500
+
+```{r}
+adf.test(sp5_ts)
+```
+
+## Gold Price
+
+```{r}
+adf.test(xau_ts)
+```
+
+## Global Commodity Price
+
+```{r}
+adf.test(gsci_ts)
+```
+
+## House Price
+
+```{r}
+adf.test(house_ts)
+```
+
+## International Visitors
+
+```{r}
+adf.test(visitors_ts)
+```
+
+:::
+
+The p-values in the ADF (Augmented Dickey-Fuller) tests for all variables are above 0.05, which means we fail to reject the null hypothesis of the test. This indicates that the time series for all variables are non-stationary, which is consistent with our previous observations. To make the time series stationary, we need to apply differencing, which helps remove trends and make the data more stable over time. Therefore, differencing is necessary to achieve stationarity before proceeding with further time series analysis.
+
+## 6. Differencing
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+diff1 <- ggAcf(diff(dxy_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(dxy_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the USD Index, the plots clearly indicate that first-order differencing is sufficient, as most of the ACF values after first-order differencing fall within the threshold and are no longer significant. Moreover, second-order differencing leads to over-differencing, as only the lag-1 autocorrelation is highly negative. This suggests that first-order differencing is the most appropriate method for achieving stationarity.
+
+## Trade Balance
+
+```{r}
+diff1 <- ggAcf(diff(balance_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(balance_ts, lag=4), 50, main="ACF of Seasonal Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff3 <- ggAcf(diff(diff(balance_ts, lag=4)), 50, main="ACF of both Seasonal and Ordinary Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, diff3, nrow=3)
+```
+
+For the trade balance, the ACF plot after first differencing still exhibits significant seasonality, suggesting that seasonal differencing is required. Applying both seasonal differencing and first-order differencing together proves effective, as most of the ACF values become insignificant. Only two lags remain significant, indicating that the series is now much closer to being stationary.
+
+## GDP
+
+```{r}
+diff1 <- ggAcf(diff(gdp_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(gdp_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the GDP, the plots clearly indicate that first-order differencing is sufficient, as the ACF values of the first-order differencing fall within the threshold and are no longer significant. Moreover, second-order differencing leads to over-differencing, as only the lag-1 autocorrelation is highly negative. This suggests that first-order differencing is the most appropriate method for achieving stationarity.
+
+## Unemployment Rate
+
+```{r}
+diff1 <- ggAcf(diff(unem_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(unem_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the Unemployment Rate, the plots clearly indicate that first-order differencing is sufficient, as the ACF values of the first-order differencing fall within the threshold and are no longer significant. Moreover, second-order differencing leads to over-differencing, as only the lag-1 autocorrelation is highly negative. This suggests that first-order differencing is the most appropriate method for achieving stationarity.
+
+## CPI
+
+```{r}
+diff1 <- ggAcf(diff(cpi_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(cpi_ts, lag=12), 50, main="ACF of Seasonal Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff3 <- ggAcf(diff(diff(cpi_ts, lag=12)), 50, main="ACF of both Seasonal and Ordinary Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, diff3, nrow=3)
+```
+
+For the CPI, first-order ordinary differencing alone still exhibits significant seasonality, while seasonal differencing results in a trend, (still non-stationary). Only when both first-order differencing and seasonal differencing are applied does the series become stationary. After both differencing, only two lags in the ACF plot remain significant. This means that our method successfully removes both the trend and seasonality from the time series.
+
+## S&P 500
+
+```{r}
+diff1 <- ggAcf(diff(sp5_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(sp5_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the S&P 500 Index, the plots clearly indicate that first-order differencing is sufficient, as most of the ACF values after first-order differencing fall within the threshold and are no longer significant. Moreover, second-order differencing leads to over-differencing, as only the lag-1 autocorrelation is highly negative. This suggests that first-order differencing is the most appropriate method for achieving stationarity.
+
+## Gold Price
+
+```{r}
+diff1 <- ggAcf(diff(xau_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(xau_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the Gold Price, the plots clearly indicate that first-order differencing is sufficient, as most of the ACF values after first-order differencing fall within the threshold and are no longer significant. Moreover, second-order differencing leads to over-differencing, as only the lag-1 autocorrelation is highly negative. This suggests that first-order differencing is the most appropriate method for achieving stationarity.
+
+## Global Commodity Price
+
+```{r}
+diff1 <- ggAcf(diff(gsci_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(gsci_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the Global Commodity Price, the plots clearly indicate that first-order differencing is sufficient, as most of the ACF values after first-order differencing fall within the threshold and are no longer significant. Moreover, second-order differencing leads to over-differencing, as only the lag-1 autocorrelation is highly negative. This suggests that first-order differencing is the most appropriate method for achieving stationarity.
+
+## House Price
+
+```{r}
+diff1 <- ggAcf(diff(house_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(house_ts, 2), 50, main="ACF of Second Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, nrow=2)
+```
+
+For the house price data, both the ACF plots for first-order and second-order differencing show significant trends. This suggests that the series still exhibits non-stationary behavior even after differencing. The persistence of significant autocorrelation across both differencing orders suggests that the underlying trend is strong and may require further transformation to achieve stationarity.
+
+## International Visitors
+
+```{r}
+diff1 <- ggAcf(diff(visitors_ts), 50, main="ACF of First Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff2 <- ggAcf(diff(visitors_ts, lag=12), 50, main="ACF of Seasonal Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+diff3 <- ggAcf(diff(diff(visitors_ts, lag=12)), 50, main="ACF of both Seasonal and Ordinary Differencing")+ theme_bw()+
+  geom_segment(lineend = "butt", color = "#5a3196") +
+    geom_hline(yintercept = 0, color = "#5a3196") 
+grid.arrange(diff1, diff2, diff3, nrow=3)
+```
+
+For the number of international visitors, first-order ordinary differencing alone still exhibits significant seasonality, while seasonal differencing results in a trend, (still non-stationary). Only when both first-order differencing and seasonal differencing are applied does the series become stationary. After both differencing, only two lags in the ACF plot remain significant. This means that our method successfully removes both the trend and seasonality from the time series.
+
+:::
+
+## 8. ADF Test after Differencing
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+adf.test(diff(dxy_ts))
+```
+
+## Trade Balance
+
+```{r}
+adf.test(diff(diff(balance_ts, lag=4)))
+```
+
+## GDP
+
+```{r}
+adf.test(diff(gdp_ts))
+```
+
+## Unemployment Rate
+
+```{r}
+adf.test(diff(unem_ts))
+```
+
+## CPI
+
+```{r}
+adf.test(diff(diff(cpi_ts, lag=12)))
+```
+
+## S&P 500
+
+```{r}
+adf.test(diff(sp5_ts))
+```
+
+## Gold Price
+
+```{r}
+adf.test(diff(xau_ts))
+```
+
+## Global Commodity Price
+
+```{r}
+adf.test(diff(gsci_ts))
+```
+
+## House Price
+
+```{r}
+adf.test(diff(house_ts))
+```
+
+## International Visitors
+
+```{r}
+adf.test(diff(diff(visitors_ts, lag=12)))
+```
+
+:::
+
+The results align with expectations, as the p-values of the ADF test for all differenced series are less than 0.05. This indicates that we can reject the null hypothesis of non-stationarity at the 5% significance level. Therefore, after differencing, all time series have become stationary.
+
+## 8. Moving Average
+
+::: panel-tabset
+
+## U.S. Dollar Index
+
+```{r}
+autoplot(dxy_ts) +
+  autolayer(ma(dxy_ts, 20), series="20-MA") +
+  autolayer(ma(dxy_ts, 50), series="50-MA") +
+  autolayer(ma(dxy_ts, 200), series="200-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## Trade Balance
+
+```{r}
+autoplot(balance_ts) +
+  autolayer(ma(balance_ts, 12), series="12-MA") +
+  autolayer(ma(balance_ts, 24), series="24-MA") +
+  autolayer(ma(balance_ts, 36), series="36-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## GDP
+
+```{r}
+autoplot(gdp_ts) +
+  autolayer(ma(gdp_ts, 12), series="12-MA") +
+  autolayer(ma(gdp_ts, 24), series="24-MA") +
+  autolayer(ma(gdp_ts, 36), series="36-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## Unemployment Rate
+
+```{r}
+autoplot(unem_ts) +
+  autolayer(ma(unem_ts, 12), series="12-MA") +
+  autolayer(ma(unem_ts, 24), series="24-MA") +
+  autolayer(ma(unem_ts, 36), series="36-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## CPI
+
+```{r}
+autoplot(cpi_ts) +
+  autolayer(ma(cpi_ts, 12), series="12-MA") +
+  autolayer(ma(cpi_ts, 24), series="24-MA") +
+  autolayer(ma(cpi_ts, 36), series="36-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## S&P 500
+
+```{r}
+autoplot(sp5_ts) +
+  autolayer(ma(sp5_ts, 20), series="20-MA") +
+  autolayer(ma(sp5_ts, 50), series="50-MA") +
+  autolayer(ma(sp5_ts, 200), series="200-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## Gold Price
+
+```{r}
+autoplot(xau_ts) +
+  autolayer(ma(xau_ts, 20), series="20-MA") +
+  autolayer(ma(xau_ts, 50), series="50-MA") +
+  autolayer(ma(xau_ts, 200), series="200-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## Global Commodity Price
+
+```{r}
+autoplot(gsci_ts) +
+  autolayer(ma(gsci_ts, 20), series="20-MA") +
+  autolayer(ma(gsci_ts, 50), series="50-MA") +
+  autolayer(ma(gsci_ts, 200), series="200-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## House Price
+
+```{r}
+autoplot(house_ts) +
+  autolayer(ma(house_ts, 12), series="12-MA") +
+  autolayer(ma(house_ts, 24), series="24-MA") +
+  autolayer(ma(house_ts, 36), series="36-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+## International Visitors
+
+```{r}
+autoplot(visitors_ts) +
+  autolayer(ma(visitors_ts, 12), series="12-MA") +
+  autolayer(ma(visitors_ts, 24), series="24-MA") +
+  autolayer(ma(visitors_ts, 36), series="36-MA") +
+  labs(title = "Moving Average Smoothing",
+       y = "Value",
+       x = "Time") +
+  theme_minimal()
+```
+
+:::

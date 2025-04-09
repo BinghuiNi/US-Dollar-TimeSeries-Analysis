@@ -1,0 +1,834 @@
+---
+title: Multivariate TS Models
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+## Multivariate Analysis
+
+Based on the data and previous univariate analysis, we will begin conducting multivariate analysis in this section. Our data science questions include: 
+
+- What factors interact with the US Dollar Index?
+- What exogenous variables affect the US Dollar Index?
+- What factors are influenced by the US Dollar Index?
+
+Before constructing Multivariate Time Series Models, we will first conduct a literature review ([see the Introduction part](https://binghuini.github.io/_site_ts_usd_index/introduction.html#literature-review)) and analyze the mechanisms among variables from an economic perspective.
+
+### Interacting Variables
+
+**Trade Balance**
+
+- **Trade Deficit → Dollar Depreciation**: Higher imports than exports lead to a trade deficit, requiring capital inflows but increasing dollar supply, causing depreciation.
+- **Dollar Depreciation → Trade Deficit Reduction**: A weaker dollar boosts US exports and reduces imports, helping balance the deficit.
+
+- The expansion of the trade deficit leads to the depreciation of the US dollar.
+
+  A trade deficit means that the US imports more than it exports. According to the `Balance of Payments Identity` (Current Account + Financial Account = 0), a trade deficit (i.e., a negative current account) means that the financial account must be positive. This is reflected in capital inflows. Typically, the US issues government bonds and attracts foreign investment to balance the trade deficit. However, the increased supply of dollars in the foreign exchange market will cause the dollar to depreciate, or foreign investors may become concerned about the US fiscal situation, leading to reduced demand for the dollar and further depreciation.
+
+- The depreciation of the dollar leads to a reduction in the trade deficit.
+
+  When the dollar depreciates, US goods and services become relatively cheaper in international markets, which may increase US exports. At the same time, imported goods become relatively expensive, leading to a reduction in US imports. Therefore, the depreciation of the dollar generally reduces the trade deficit.
+
+**Global Commodity Market**
+
+- A stronger dollar leads to a decrease in global commodity prices.
+
+  Since the dollar is the global reserve and trading currency, commodities (such as oil, gold, copper, aluminum, etc.) are typically priced in dollars. When the dollar appreciates, the cost for holders of other currencies to buy dollar-priced commodities increases, which leads to a reduction in demand and lowers commodity prices. Additionally, investors may shift funds from physical assets like commodities into dollar-denominated assets, further driving down commodity prices.
+
+- Changes in commodity prices also influence the US Dollar Index.
+
+  A rise in commodity prices, especially oil and metal prices, often puts pressure on global inflation. This, in turn, affects the Dollar Index. Moreover, commodity price fluctuations often reflect changes in the global economy. For example, an increase in oil prices may indicate a slowdown in global economic growth or supply-demand imbalances. These factors could lead to higher demand for the dollar as a safe-haven currency, thus pushing up the Dollar Index.
+
+**Stock Market**
+
+- The risk and return associated with stocks are relatively high, and the dollar can serve as a safe-haven asset. Therefore, there is a competitive relationship between the two. Generally speaking, the stock market and the Dollar Index have an inverse relationship. When global investors have a higher risk appetite or when the stock market is strong, capital tends to flow into the stock market. This reduces demand for the dollar and leads to a depreciation of the dollar. On the other hand, when the dollar appreciates, investors may prefer to move funds into low-risk assets like bonds. This leads to capital outflows from the stock market and puts downward pressure on it, especially on overvalued stocks. However, a stronger dollar may also reflect a robust economy, which could push stock prices higher.
+
+**Gold Market**
+
+- The dollar and gold also tend to show inverse fluctuations due to their competitive relationship.
+
+- A stronger dollar leads to a decrease in gold prices.
+
+  First, gold prices are usually denominated in dollars. When the dollar appreciates, the cost of gold in other currencies increases, reducing demand and lowering gold prices. Secondly, a stronger dollar may be due to the Federal Reserve raising interest rates. In this case, investors are more likely to invest in higher-yielding assets (such as dollar-denominated bonds) and reduce holdings in non-interest-bearing assets like gold, leading to a decline in gold prices.
+
+- An increase in gold prices leads to the depreciation of the dollar.
+
+  When the dollar weakens or global economic uncertainty rises, the dollar may no longer be considered a safe-haven asset, and gold becomes the preferred choice. Investors may tend to buy gold as a hedge against inflation or currency devaluation, leading to decreased demand for the dollar and causing it to depreciate.
+
+**GDP**
+
+- Economic growth drives dollar appreciation.
+
+  When a country’s GDP grows strongly, it typically reflects good economic performance and attracts foreign investors' attention. This capital inflow (e.g., foreign direct investment, securities investment) increases demand for the country's currency, which in our case is the US dollar, leading to dollar appreciation.
+
+**Unemployment Rate**
+
+- A higher unemployment rate leads to dollar depreciation.
+
+  - **Mechanism 1** 
+  
+    The unemployment rate mainly affects the economy, which in turn influences the Dollar Index. There is an inverse relationship between the unemployment rate and GDP growth. A higher unemployment rate typically indicates an economic recession or depression, where businesses reduce hiring, which is often accompanied by a decrease in consumption and investment. This reduces the ability to attract foreign investment into the US, leading to reduced demand for dollar-denominated assets and a depreciation of the dollar.
+
+  - **Mechanism 2** 
+
+    When the unemployment rate is high, the Federal Reserve may adopt loose monetary policies (e.g., lowering interest rates or quantitative easing) to stimulate the economy and reduce unemployment. Such loose monetary policies typically lead to dollar depreciation because lower interest rates reduce the relative attractiveness of the dollar, making it less likely to attract foreign capital inflows, thereby decreasing demand for the dollar.
+
+**CPI**
+
+- An increase in the CPI drives dollar appreciation.
+
+  When the CPI rises, it indicates inflation. In this case, the Federal Reserve may adopt a tightening monetary policy, such as raising interest rates, to control inflation. Higher interest rates make the dollar more attractive because they can attract foreign capital inflows, increasing demand for the dollar and thus driving up its value. 
+
+  Expectations are also a factor. If inflation expectations rise, markets may anticipate that the Federal Reserve will take more tightening measures, which could lead to dollar appreciation.
+
+### Exogenous Variables
+
+**Real Estate Market**
+
+- A stronger dollar typically indicates a relatively strong US economy, and interest rates may rise. Higher mortgage rates increase borrowing costs, which can suppress demand for housing and lead to a decline in housing prices. 
+
+- However, a stronger dollar can also boost confidence among homebuyers and global investors. This leads to increased capital inflows into US real estate, pushing housing prices up. 
+
+Therefore, the impact may be a combined effect.
+
+**Tourism**
+
+- When the dollar appreciates, foreign tourists need to exchange more of their local currency for dollars, which increases their travel costs. Some tourists may opt for other travel destinations, leading to a decrease in the number of tourists visiting the US. Therefore, US tourism may decline with a stronger dollar.
+
+```{r}
+#| vscode: {languageId: r}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(readr)
+library(dplyr)
+library(kableExtra)
+library(knitr)
+library(patchwork)
+library(vars)
+
+# Load data
+invisible(getSymbols("DX-Y.NYB", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+dxy <- data.frame(Date = index(`DX-Y.NYB`), 
+                       Open = `DX-Y.NYB`[, "DX-Y.NYB.Open"], 
+                       High = `DX-Y.NYB`[, "DX-Y.NYB.High"], 
+                       Low = `DX-Y.NYB`[, "DX-Y.NYB.Low"], 
+                       Close = `DX-Y.NYB`[, "DX-Y.NYB.Close"])
+colnames(dxy) <- c("Date", "Open", "High", "Low", "Close")
+dxy <- na.omit(dxy)
+
+bea <- read.csv("./data/bea.csv")
+bea$time <- as.Date(bea$time)
+
+gdp <- read.csv("./data/gdp.csv")
+gdp$time <- as.Date(gdp$time)
+gdp$total <- gdp$consumption + gdp$investment + gdp$net_export + gdp$government
+
+data_unem <- read.csv("./data/unem.csv", header=TRUE)
+data_unem$time <- as.Date(data_unem$time)
+
+data_cpi <- read.csv("./data/cpi.csv", header=TRUE)
+data_cpi$time <- as.Date(data_cpi$time)
+
+invisible(getSymbols("^GSPC", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+invisible(getSymbols("BTC-USD", src = "yahoo", from = "2015-01-01", to = "2024-12-31"))
+
+xau <- read.csv("./data/xau.csv")
+xau$Date <- as.Date(xau$Date)
+
+gsci <- read.csv("./data/gsci.csv")[2:2518,]
+gsci$Date <- as.Date(gsci$Date)
+
+house <- read.csv("./data/house.csv", header=TRUE)
+house$time <- as.Date(house$time)
+
+visitors <- read.csv("./data/visitors.csv", header=TRUE)
+visitors$time <- as.Date(visitors$time)
+
+egg <- read.csv("./data/eggs_price.csv")
+egg$Date <- as.Date(egg$Date)
+
+ir <- read.csv("./data/interest_rate.csv")
+ir$Date <- as.Date(ir$Date)
+
+oil <- read.csv("./data/oil_price.csv")
+oil$Date <- as.Date(oil$Date)
+
+# time series
+dxy_ts <- ts(log(dxy$Close), start=c(2005,1), frequency=252)
+balance_ts <- ts(bea$balance, start=c(2005,1), end=c(2024,3), frequency=4)
+gdp_ts <- ts(gdp$total, start=c(2005,1), end=c(2024,3), frequency=4)
+unem_ts <- ts(log(data_unem$unem), start=c(2005,1), end=c(2023,12), frequency=12)
+cpi_ts <- ts(data_cpi$cpi, start=c(2005,1), end=c(2023,12), frequency=12)
+sp5_ts <- ts(GSPC$GSPC.Close, start=c(2005,1), frequency=252)
+xau_ts <- ts(log(xau$Price), start=c(2005,1), end=c(2024,52), frequency=52)
+oil_ts <- ts(log(oil$Oil), start=c(2005,1), end=c(2024,12), frequency=12)
+gsci_ts <- ts(log(gsci$Price), start=c(2014,252), frequency=252)
+house_ts <- ts(house$index, start=c(2005,1), end=c(2024,4), frequency=4)
+visitors_ts <- ts(log(visitors$count), start=c(2005,1), end=c(2024,12), frequency=12)
+btc_ts <- ts(log(`BTC-USD`[,"BTC-USD.Close"]), start=c(2015,1), frequency=252)
+egg_ts <- ts(log(egg$Price), start=c(2005,1), end=c(2024,12), frequency=12)
+ir_ts <- ts(ir$IR, start=c(2005,1), end=c(2024,12), frequency=12)
+
+set.seed(123)
+library(kableExtra)
+
+# ARIMA funtion
+ARIMA.c = function(p1, p2, q1, q2, data) {
+  d = 1
+  i = 1
+  temp = data.frame()
+  ls = matrix(rep(NA, 6 * 100), nrow = 100)
+  
+  for (p in p1:p2) {
+    for (q in q1:q2) {
+          if (p + d + q <= 9) {
+            
+            model <- tryCatch({
+              Arima(data, order = c(p, d, q), include.drift = TRUE)
+            }, error = function(e) {
+              return(NULL)
+            })
+            
+            if (!is.null(model)) {
+              ls[i, ] = c(p, d, q, model$aic, model$bic, model$aicc)
+              i = i + 1
+            }
+          }
+        }
+      }
+      temp = as.data.frame(ls)
+      names(temp) = c("p", "d", "q", "AIC", "BIC", "AICc")
+      temp = na.omit(temp)
+      return(temp)
+}
+
+# SARIMA function
+SARIMA.c = function(p1, p2, q1, q2, P1, P2, Q1, Q2, s, data) {
+  d = 1
+  D = 1
+  i = 1
+  temp = data.frame()
+  ls = matrix(rep(NA, 9 * 100), nrow = 100)
+  
+  for (p in p1:p2) {
+    for (q in q1:q2) {
+      for (P in P1:P2) {
+        for (Q in Q1:Q2) {
+          if (p + d + q + P + D + Q <= 9) {
+            
+            model <- tryCatch({
+              Arima(data, order = c(p, d, q), seasonal = list(order = c(P,D,Q), period = s))
+            }, error = function(e) {
+              return(NULL)
+            })
+            
+            if (!is.null(model)) {
+              ls[i, ] = c(p, d, q, P, D, Q, model$aic, model$bic, model$aicc)
+              i = i + 1
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  temp = as.data.frame(ls)
+  names(temp) = c("p", "d", "q", "P", "D", "Q", "AIC", "BIC", "AICc")
+  temp = na.omit(temp)
+  return(temp)
+}
+
+highlight_output = function(output, type="ARIMA") {
+    highlight_row <- c(which.min(output$AIC), which.min(output$BIC), which.min(output$AICc))
+    knitr::kable(output, align = 'c', caption = paste("Comparison of", type, "Models")) %>%
+    kable_styling(full_width = FALSE, position = "center") %>%
+    row_spec(highlight_row, bold = TRUE, background = "#FFFF99")  # Highlight row in yellow
+}
+
+# Define a function to fit SARIMA and handle errors
+fit_sarima <- function(xtrain, p, d, q, P, D, Q, s) {
+  fit <- tryCatch({
+    Arima(xtrain, order = c(p, d, q), seasonal = list(order = c(P, D, Q), period = s),
+          include.drift = FALSE, lambda = 0, method = "ML")
+  }, error = function(e) {
+    return(NULL)  # Return NULL if an error occurs
+  })
+  return(fit)  # Return the fitted model (or NULL)
+}
+```
+
+## VAR: USD ~ Trade Deficit + Global Commodity Price + CPI
+
+Here, we will analyze the interactions between the USD, trade deficit, global commodity prices, and CPI.
+
+::: panel-tabset
+
+## Time Series Plot
+
+```{r}
+dxy_m <- dxy %>%
+  mutate(month = floor_date(Date, "month")) %>% 
+  group_by(month) %>%
+  summarise(Close = mean(Close, na.rm = TRUE))
+dxy_q <- dxy %>%
+  mutate(quarter = floor_date(Date, "quarter")) %>% 
+  group_by(quarter) %>%
+  summarise(Close = mean(Close, na.rm = TRUE))
+gsci_q <- gsci %>%
+  mutate(quarter = floor_date(Date, "quarter")) %>%
+  group_by(quarter) %>%
+  summarise(gsci = mean(Price, na.rm = TRUE))
+cpi_q <- data_cpi %>%
+  mutate(quarter = floor_date(time, "quarter")) %>%
+  group_by(quarter) %>%
+  summarise(cpi = mean(cpi, na.rm = TRUE))
+
+df1 <- data.frame(Date = gsci_q$quarter, 
+                  dxy = log(dxy_q$Close)[41:80], 
+                  deficit = log(abs(bea$balance))[41:80],
+                  gsci = log(gsci_q$gsci),
+                  cpi = log(cpi_q$cpi)[41:80]
+                  )
+
+plot_usd <- plot_ly(df1, x = ~Date, y = ~dxy, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_deficit <- plot_ly(df1, x = ~Date, y = ~deficit, type = 'scatter', mode = 'lines', name = 'Trade Deficit') 
+plot_gsci <- plot_ly(df1, x = ~Date, y = ~gsci, type = 'scatter', mode = 'lines', name = 'Commodity Price') 
+plot_cpi <- plot_ly(df1, x = ~Date, y = ~cpi, type = 'scatter', mode = 'lines', name = 'CPI') 
+
+subplot(plot_usd, plot_deficit, plot_gsci, plot_cpi, nrows = 4, shareX = TRUE) %>%
+  layout(title = "Trend of U.S. Dollar and Related Variables", showlegend = FALSE,
+    xaxis = list(title = 'Date'),
+    yaxis = list(title = 'U.S. Dollar'),
+    yaxis2 = list(title = 'Trade Deficit'),
+    yaxis3 = list(title = 'Commodity Price'),
+    yaxis4 = list(title = 'CPI'))
+```
+
+## Parameter(p) Selection
+
+```{r}
+ts_df1 <- ts(df1[,-1], start = c(2015,1), frequency = 4)
+VARselect(ts_df1, lag.max=6, type="both") 
+```
+
+Based on the results, the lag length could be 1, 2, or 6.
+
+## Fit Models
+
+```{r}
+summary(fit <- VAR(ts_df1, p=1, type="both"))
+summary(fit <- VAR(ts_df1, p=2, type="both"))
+summary(fit <- VAR(ts_df1, p=6, type="both"))
+```
+
+The model with p=1 or p=2 looks good. However, only a few variables are significant in the model with p=6, suggesting that VAR(6) may not be the best choice.
+
+## Cross Validation
+
+```{r}
+fun.var <- function(ts, year, p, s){
+  fit <- VAR(ts, p=p, type='both')
+  fcast <- predict(fit, n.ahead = s)
+  
+  f1<-fcast$fcst$dxy
+  f2<-fcast$fcst$deficit
+  f3<-fcast$fcst$gsci
+  f4<-fcast$fcst$cpi
+  ff<-data.frame(f1[,1],f2[,1],f3[,1],f4[,1])
+  ff<-ts(ff,start=c(year,1),frequency = s)
+  return(ff)
+}
+
+data <- ts_df1
+n=nrow(data)
+n_var = ncol(data)
+h <- 4  # h: Forecast horizon
+# k: Initial training set
+# Calculate k as 1/3rd of the data, rounded down to the nearest multiple of 12
+k <- floor(n / 3 / h) * h
+num_iter <- (n - k) / h  # Number of rolling iterations
+
+# Initialize matrices for RMSE
+rmse1 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 1
+rmse2 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 2
+
+# Define rolling start time
+st <- tsp(data)[1] + (k - 1) / h 
+
+# Walk-Forward Validation Loop
+for (i in 1:num_iter) {
+  xtrain <- window(data, end = st + i - 1)
+  xtest <- window(data, start = st + (i - 1) + 1/h, end = st + i)  # Test set for the next 12 months
+  test_start_year <- st + (i-1) + 1/h #starting year for predication, i.e. xtest
+
+  ######## VAR(1) ############
+  ff1 <- fun.var(xtrain, test_start_year, p=1, s=h)
+  ######## VAR(2) ############
+  ff2 <- fun.var(xtrain, test_start_year, p=2, s=h)
+  
+  ##### collecting errors ######
+  a = h*i-h+1
+  b= h*i
+  rmse1[c(a:b),]  <-abs(ff1-xtest)
+  rmse2[c(a:b),]  <-abs(ff2-xtest)
+}
+
+rmse_combined <- as.data.frame(rbind(rmse1, rmse2))
+colnames(rmse_combined) = c("usd","deficit","gsci","cpi")
+rmse_combined$Model <- c(rep("VAR(1)", n-k),rep("VAR(2)", n-k))
+rmse_combined$Date <- time(data)[(k+1):n]
+
+# Create the USD RMSE plot with a legend
+ggplot(data = rmse_combined, aes(x = Date, y = usd, color = Model)) + 
+  geom_line() +
+  labs(
+    title = "CV Error for USD",
+    x = "Date",
+    y = "Error",
+    color = "Model"
+  ) +
+  theme_minimal()
+```
+
+VAR(1) is slightly better.
+
+## Model Equation
+
+$$
+\begin{aligned}
+\left[\begin{array}{l}
+\hat{USD_t} \\ \hat{Deficit_t} \\ \hat{Commodity_t} \\ \hat{CPI_t}
+\end{array}\right] &= \left[\begin{array}{ccc}
+0.667614 & 0.004326 & 0.069535 & 0.248191 \\
+-1.498555 & 0.421178 & 0.030080 & 1.097922 \\
+-1.150435 & 0.171882 & 0.703631 & 0.810695 \\
+-0.0531202 & -0.0003969 & 0.0180458 & 0.9359941
+\end{array}\right] \left[\begin{array}{l}
+\text{USD}_{t-1} \\
+\text{Deficit}_{t-1} \\
+\text{Commodity}_{t-1} \\
+\text{CPI}_{t-1}
+\end{array}\right]
+\end{aligned}
+$$
+
+## Forecast
+
+```{r}
+# Fit a VAR(1) model including both a constant and trend
+fit <- VAR(data, p = 1, type = "both")
+
+forecast(fit) %>%
+  autoplot() + xlab("Year")
+```
+
+I believe the forecast is very good. The VAR(1) model has effectively captured the pattern of four varibales.
+
+:::
+
+## VAR: USD ~ Interest Rate + CPI + Unemployment Rate + GDP
+
+## VAR: USD ~ Stock Price + Bitcoin Price
+
+## VAR: USD ~ Oil Price + Gold Price
+
+## SARIMAX: USD ~ Egg Price
+
+In this analysis, we will explore how the domestic market, specifically egg prices, affects the USD.
+
+::: panel-tabset
+
+## Time Series Plot
+
+```{r}
+df5 <- data.frame(Date = dxy_m$month, dxy = log(dxy_m$Close), egg = log(egg$Price))
+
+plot_usd <- plot_ly(df5, x = ~Date, y = ~dxy, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_egg <- plot_ly(df5, x = ~Date, y = ~egg, type = 'scatter', mode = 'lines', name = 'Egg Price') 
+
+subplot(plot_usd, plot_egg, nrows = 2, shareX = TRUE) %>%
+  layout(title = "Trend of U.S. Dollar and Egg Price", showlegend = FALSE,
+    xaxis = list(title = 'Date'),
+    yaxis = list(title = 'U.S. Dollar'),
+    yaxis2 = list(title = 'Egg Price'))
+```
+
+The trend of the USD and egg prices is very similar. Thus, we can fit an ARIMAX model using the USD as the dependent variable and egg prices as the exogenous variable.
+
+## auto.arima
+
+```{r}
+ts_df5 <- ts(df5, start = c(2005, 1), frequency = 12)
+auto.arima(ts_df5[,"dxy"], xreg = ts_df5[,"egg"])
+```
+
+## Manual Search
+
+```{r}
+# Fit a linear model
+lm_fit.5 <- lm(dxy ~ egg, data = df5)
+res.5 <- ts(residuals(lm_fit.5), start = c(2005, 1), frequency = 12)
+
+# ACF and PACF plots of the residuals
+ggtsdisplay(diff(res.5), main = "Differenced residuals") # p=0:1, d=1, q=0:1, P=0:3, D=1, Q=0:1
+
+# Manual search
+output=SARIMA.c(p1=0,p2=1,q1=0,q2=1,P1=0,P2=3,Q1=0,Q2=1,s=12,data=res.5)
+highlight_output(output)
+
+# Model Diagnostics
+model_output <- capture.output(sarima(res.5, 1,1,0,0,1,1,12))
+start_line <- grep("Coefficients", model_output)
+end_line <- length(model_output)
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The best model for the residuals of the linear model is ARIMA(1,1,0)(0,1,1)[12].
+
+The Residual Plot of the ARIMA model shows nearly consistent fluctuation around zero, suggesting that the residuals are nearly stationary with a constant mean and finite variance over time.
+
+The Autocorrelation Function (ACF) of the residuals shows mostly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box Test p-values are mostly above the 0.05 significance level, implying that a few autocorrelations are left in the residuals.
+
+All coefficients are significant at the 5% significant level.
+
+## Cross Validation
+
+```{r}
+# Define parameters
+data <- ts_df5
+n <- nrow(data)  # Total observations
+h <- 12  # h: Forecast horizon
+# k: Initial training set
+# Calculate k as 1/3rd of the data, rounded down to the nearest multiple of 12
+k <- floor(n / 3 / h) * h
+num_iter <- (n - k) / h  # Number of rolling iterations
+
+# Initialize matrices for RMSE
+rmse1 <- matrix(NA, nrow = num_iter, ncol = h)  # RMSE for Model 1
+rmse2 <- matrix(NA, nrow = num_iter, ncol = h)  # RMSE for Model 2
+
+# Define rolling start time
+st <- tsp(data)[1] + (k - 1) / h 
+
+# Walk-Forward Validation Loop
+for (i in 1:num_iter) {
+  xtrain <- window(data, end = st + i - 1)
+  xtest <- window(data, start = st + (i - 1) + 1/h, end = st + i)  # Test set for the next 12 months
+
+  # Fit auto.arima() model
+  model.1 <- Arima(xtrain[,"dxy"], order = c(1,1,2), 
+                  seasonal = list(order = c(2,0,1), period = 12),
+                  xreg = xtrain[, "egg"],
+                  optim.control = list(maxit = 10000))   
+  f.1 <-   forecast(model.1, xreg = xtest[, "egg"], h = h)
+  rmse1[i,] <-  (f.1$mean - xtest[,"dxy"])^2
+
+  ###### Fit manual model
+  model.2 <- Arima(xtrain[, "dxy"], order = c(1,1,0),
+                  seasonal = list(order = c(0,1,1), period = 12),
+                  xreg = xtrain[, "egg"],
+                  optim.control = list(maxit = 10000))
+  f.2 <- forecast(model.2, xreg = xtest[, "egg"], h = h)
+  rmse2[i,] <-  (f.2$mean - xtest[,"dxy"])^2
+}   
+
+# Compute RMSE across all iterations
+rmse1_avg <- sqrt(colMeans(rmse1, na.rm = TRUE))
+rmse2_avg <- sqrt(colMeans(rmse2, na.rm = TRUE))
+
+# Create a DataFrame for better visualization
+error_table <- data.frame(
+    Horizon = 1:h,
+    RMSE_Model1 = rmse1_avg,
+    RMSE_Model2 = rmse2_avg
+)
+
+# **Improved RMSE Plot using ggplot2**
+ggplot(error_table, aes(x = Horizon)) +
+  geom_line(aes(y = RMSE_Model1, color = "Regression with ARIMA(1,1,2)(2,0,1)[12] errors"), size = 1) +
+  geom_line(aes(y = RMSE_Model2, color = "Regression with ARIMA(1,1,0)(0,1,1)[12] errors"), size = 1) +
+  labs(title = "RMSE Comparison for 12-Step Forecasts",
+       x = "Forecast Horizon (Months Ahead)",
+       y = "Root Mean Squared Error (RMSE)") +
+  scale_color_manual(name = "Models", values = c("red", "blue")) +
+  theme_minimal()
+```
+
+ARIMA(1,1,2)(2,0,1)[12] looks better.
+
+## Model Equation
+
+Fit and summarize the best model:
+
+```{r}
+best_model <- Arima(data[,"dxy"], order = c(1,1,2), 
+                seasonal = list(order = c(2,0,1), period = 12),
+                xreg = data[, "egg"],
+                optim.control = list(maxit = 10000))   
+summary(best_model)
+```
+
+**Model Equation**
+
+$$
+\begin{gathered}
+y_t=\beta x_t+n_t \\
+\Phi_P\left(B^s\right) \varphi(B) \nabla_s^D \nabla^d n_t=\delta+\Theta_Q\left(B^s\right) \theta(B) w_t
+\end{gathered}
+$$
+
+With the parameters from the model:
+$$
+\begin{gathered}
+y_t=\beta x_t+n_t \\
+y_t=0.0019 \text { Egg Price }+n_t
+\end{gathered}
+$$
+
+With $\operatorname{ARIMA}(1,1,2)(2,0,1)[12]$ errors:
+$$
+\begin{gathered}
+\Phi_P\left(B^{12}\right) \varphi(B) \nabla_{12}^{D=0} \nabla^{d=1} n_t=\Theta_Q\left(B^{12}\right) \theta(B) w_t \\
+(1-\Phi_1 B^{12} - \Phi_2 B^{24})\left(1-\phi_1 B\right)(1-B) n_t=\left(1+\Theta B^{12}\right)\left(1+\theta_1 B+\theta_2 B^2\right) w_t \\
+(1+0.704 B^{12} +0.1496 B^{24})\left(1+0.9684 B\right)(1-B) n_t=\left(1+0.5654 B^{12}\right)\left(1+1.2983 B+0.3595 B^2\right) w_t
+\end{gathered}
+$$
+
+## Forecast
+
+```{r}
+arima_egg <- auto.arima(ts_df5[,"egg"])
+f_egg <- forecast(arima_egg, h = h)
+f.5 <-   forecast(best_model, xreg = f_egg$mean, h = h)
+autoplot(f.5) +
+  labs(title = "12-Month Forecast of Log-Transformed U.S. Dollar",
+       x = "Time", y = "Log-transformed USD") +
+  theme_minimal()
+```
+
+I believe the forecast is very good. By adding the exogenous variable (egg price) to the SARIMA model, the SARIMAX model has effectively captured the pattern of USD.
+
+:::
+
+## ARIMAX: USD ~ House Price + International Visitors
+
+Here, we will examine how the real estate and tourism market affect the USD.
+
+::: panel-tabset
+
+## Time Series Plot
+
+```{r}
+visitors_q <- visitors %>%
+  mutate(quarter = floor_date(time, "quarter")) %>% 
+  group_by(quarter) %>%
+  summarise(count = mean(count, na.rm = TRUE))
+df6 <- data.frame(Date = dxy_q$quarter, 
+                  dxy = log(dxy_q$Close), 
+                  house = log(house$index),
+                  visitors = log(visitors_q$count))
+plot_usd <- plot_ly(df6, x = ~Date, y = ~dxy, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_house <- plot_ly(df6, x = ~Date, y = ~house, type = 'scatter', mode = 'lines', name = 'House Price') 
+plot_visitors <- plot_ly(df6, x = ~Date, y = ~visitors, type = 'scatter', mode = 'lines', name = 'Visitors') 
+
+subplot(plot_usd, plot_house, plot_visitors, nrows = 3, shareX = TRUE) %>%
+  layout(title = "Trend of U.S. Dollar and Related Variables ", showlegend = FALSE,
+    xaxis = list(title = 'Date'),
+    yaxis = list(title = 'U.S. Dollar'),
+    yaxis2 = list(title = 'House Price'),
+    yaxis3 = list(title = "Num of Intl Visitors"))
+```
+
+Both the USD and house prices show an upward trend. Thus, we can fit an ARIMAX model using the USD as the dependent variable, house prices and international visitors as the exogenous variables.
+
+## auto.arima
+
+```{r}
+ts_df6 <- ts(df6, start = c(2005, 1), frequency = 4)
+auto.arima(ts_df6[,"dxy"], xreg = ts_df6[,c("house", "visitors")])
+```
+
+## Manual Search
+
+```{r}
+# Fit a linear model
+lm_fit.6 <- lm(dxy ~ house + visitors, data = df6)
+res.6 <- ts(residuals(lm_fit.6), start = c(2005, 1), frequency = 4)
+
+# ACF and PACF plots of the residuals
+ggtsdisplay(diff(res.6), main = "Differenced Residuals") # p=0:2, d=1, q=0:3
+
+# Manual search
+output=ARIMA.c(p1=0,p2=2,q1=0,q2=3,data=res.6)
+highlight_output(output)
+
+# Model Diagnostics
+model_output <- capture.output(sarima(res.6, 0,1,1))
+start_line <- grep("Coefficients", model_output)
+end_line <- length(model_output)
+cat(model_output[start_line:end_line], sep = "\n")
+
+model_output <- capture.output(sarima(res.6, 1,1,2))
+start_line <- grep("Coefficients", model_output)
+end_line <- length(model_output)
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The best model for the residuals of the linear model is ARIMA(0,1,1), since it has lower AIC and AICc values.
+
+For both models:
+
+The Residual Plot of the ARIMA model shows nearly consistent fluctuation around zero, suggesting that the residuals are nearly stationary with a constant mean and finite variance over time.
+
+The Autocorrelation Function (ACF) of the residuals shows perfectly independence.
+
+The Q-Q Plot indicates that the residuals follow a near-normal distribution, with minor deviations at the tails, which is typical in time series data.
+
+The Ljung-Box Test p-values are all above the 0.05 significance level, implying that no autocorrelations are left in the residuals.
+
+All coefficients are significant at the 5% significant level.
+
+## Cross Validation
+
+```{r}
+# Define parameters
+data <- ts_df6
+n <- nrow(data)  # Total observations
+h <- 4  # h: Forecast horizon
+# k: Initial training set
+# Calculate k as 1/3rd of the data, rounded down to the nearest multiple of 4
+k <- floor(n / 3 / h) * h
+num_iter <- (n - k) / h  # Number of rolling iterations
+
+# Initialize matrices for RMSE
+rmse1 <- matrix(NA, nrow = num_iter, ncol = h)  # RMSE for Model 1
+rmse2 <- matrix(NA, nrow = num_iter, ncol = h)  # RMSE for Model 2
+
+# Define rolling start time
+st <- tsp(data)[1] + (k - 1) / h 
+
+# Walk-Forward Validation Loop
+for (i in 1:num_iter) {
+  xtrain <- window(data, end = st + i - 1)
+  xtest <- window(data, start = st + (i - 1) + 1/h, end = st + i)  # Test set for the next 4 months
+
+  # Fit auto.arima() model
+  model.1 <- Arima(xtrain[,"dxy"], order = c(0,1,1), 
+                  xreg = xtrain[, c("house", "visitors")],
+                  optim.control = list(maxit = 10000))   
+  f.1 <-   forecast(model.1, xreg = xtest[, c("house", "visitors")], h = h)
+  rmse1[i,] <-  (f.1$mean - xtest[,"dxy"])^2
+
+  ###### Fit manual model
+  model.2 <- Arima(xtrain[, "dxy"], order = c(1,1,2),
+                  xreg = xtrain[, c("house", "visitors")],
+                  optim.control = list(maxit = 10000))
+  f.2 <- forecast(model.2, xreg = xtest[, c("house", "visitors")], h = h)
+  rmse2[i,] <-  (f.2$mean - xtest[,"dxy"])^2
+}   
+
+# Compute RMSE across all iterations
+rmse1_avg <- sqrt(colMeans(rmse1, na.rm = TRUE))
+rmse2_avg <- sqrt(colMeans(rmse2, na.rm = TRUE))
+
+# Create a DataFrame for better visualization
+error_table <- data.frame(
+    Horizon = 1:h,
+    RMSE_Model1 = rmse1_avg,
+    RMSE_Model2 = rmse2_avg
+)
+
+# **Improved RMSE Plot using ggplot2**
+ggplot(error_table, aes(x = Horizon)) +
+  geom_line(aes(y = RMSE_Model1, color = "Regression with ARIMA(0,1,1) errors"), size = 1) +
+  geom_line(aes(y = RMSE_Model2, color = "Regression with ARIMA(1,1,2) errors"), size = 1) +
+  labs(title = "RMSE Comparison for 4-Step Forecasts",
+       x = "Forecast Horizon (Months Ahead)",
+       y = "Root Mean Squared Error (RMSE)") +
+  scale_color_manual(name = "Models", values = c("red", "blue")) +
+  theme_minimal()
+```
+
+ARIMA(0,1,1) looks better.
+
+## Model Equation
+
+Fit and summarize the best model:
+
+```{r}
+best_model <- Arima(data[,"dxy"], order = c(0,1,1), 
+                xreg = data[, c("house", "visitors")],
+                optim.control = list(maxit = 10000))   
+summary(best_model)
+```
+
+**Model Equation**
+
+$$
+\begin{gathered}
+y_t=\beta x_t+n_t \\
+\varphi(B) \nabla^d n_t=\delta+ \theta(B) w_t
+\end{gathered}
+$$
+
+With the parameters from the model:
+$$
+\begin{gathered}
+y_t=\beta x_t+n_t \\
+y_t=0.3585 \text { House Price } -0.0118 \text{International Visitors} +n_t
+\end{gathered}
+$$
+
+With $\operatorname{ARIMA}(0,1,1)$ errors:
+$$
+\begin{gathered}
+\varphi(B) \nabla^{d=1} n_t= \theta(B) w_t \\
+(1-B) n_t=\left(1+\theta_1 B\right) w_t \\
+(1-B) n_t=\left(1+0.4995 B\right) w_t
+\end{gathered}
+$$
+
+## Forecast
+
+```{r}
+arima_house <- auto.arima(ts_df6[,"house"])
+f_house <- forecast(arima_house, h = h)
+arima_visitors <- auto.arima(ts_df6[,"visitors"])
+f_visitors <- forecast(arima_visitors, h = h)
+xreg <- cbind(f_house$mean, f_visitors$mean)
+colnames(xreg) <- c("house", "visitors")
+f.6 <-   forecast(best_model, xreg = xreg, h = h)
+autoplot(f.6) +
+  labs(title = "4-Quarter Forecast of Log-Transformed U.S. Dollar",
+       x = "Time", y = "Log-transformed USD") +
+  theme_minimal()
+```
+
+I believe the forecast is very good. By adding the exogenous variables (house price and the number of international visitors) to the ARIMA model, the ARIMAX model has effectively captured the pattern of USD.
+
+:::
+
+

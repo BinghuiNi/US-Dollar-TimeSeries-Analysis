@@ -1,0 +1,147 @@
+---
+title: "Data Sources"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: false
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+:::{.callout-note}
+The raw data collected for this project is available [here](https://drive.google.com/drive/folders/1HUxyfUEqEh1DtN-C2vtCmRsN0NmeubEp?dmr=1&ec=wgc-drive-hero-goto), and the sources are provided in the text.
+:::
+
+
+## U.S. Dollar Index
+
+- **Data Source:** [Yahoo Finance](https://finance.yahoo.com/quote/DX-Y.NYB/)  
+
+![Figure 2.1: U.S. Dollar Index Over Time.  Source: [Yahoo Finance](https://finance.yahoo.com/quote/DX-Y.NYB/)](./img/dxy_scource.png)
+
+- **Description:** This dataset contains **daily U.S. Dollar Index data** from **January 1, 2005, to December 31, 2024**.  
+  - The **U.S. Dollar Index** measures the value of the U.S. dollar against a basket of major foreign currencies, including the euro, Japanese yen, British pound, Canadian dollar, Swedish krona, and Swiss franc.  
+  - - Daily data provides a more detailed view of the market, allowing for the identification of short-term fluctuations as well as long-term trends.  
+  - Here is a view of a sample of the data:
+```{r, echo=FALSE}
+library(quantmod)
+library(knitr)
+library(kableExtra)
+
+invisible(getSymbols("DX-Y.NYB", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+kable(head(na.omit(`DX-Y.NYB`)), align = 'c') %>%
+  kable_styling(full_width = FALSE, position = "center")
+```
+
+
+## U.S. International Trade  
+
+- **Data Source:** [U.S. Bureau of Economic Analysis (BEA)](https://apps.bea.gov/itable/?reqid=62&step=1&_gl=1*cj0nip*_ga*NDE0NjMxMDI1LjE3MzgwOTQyNDE.*_ga_J4698JNNFT*MTczODE4MjUyNC4zLjEuMTczODE4MjUyOS41NS4wLjA.#eyJhcHBpZCI6NjIsInN0ZXBzIjpbMSwyLDYsNl0sImRhdGEiOltbIlByb2R1Y3QiLCIxIl0sWyJUYWJsZUxpc3QiLCIxIl0sWyJGaWx0ZXJfIzEiLFsiMSIsIjIiLCIzIiwiNCIsIjUiLCI2IiwiNyIsIjgiLCI5IiwiMTAiLCIxMSIsIjEyIiwiMTMiLCIxNCIsIjE1IiwiMTYiLCIxNyIsIjE4IiwiMTkiLCIyMCJdXSxbIkZpbHRlcl8jMiIsWyIyIl1dLFsiRmlsdGVyXyMzIixbIjMiLCIxMSIsIjIyIiwiMjciXV0sWyJGaWx0ZXJfIzQiLFsiMCJdXSxbIkZpbHRlcl8jNSIsWyIwIl1dXX0=)  
+
+![Figure 2.2: U.S. International Trade Over Time.  Source: [BEA](https://apps.bea.gov/itable/?reqid=62&step=1&_gl=1*cj0nip*_ga*NDE0NjMxMDI1LjE3MzgwOTQyNDE.*_ga_J4698JNNFT*MTczODE4MjUyNC4zLjEuMTczODE4MjUyOS41NS4wLjA.#eyJhcHBpZCI6NjIsInN0ZXBzIjpbMSwyLDYsNl0sImRhdGEiOltbIlByb2R1Y3QiLCIxIl0sWyJUYWJsZUxpc3QiLCIxIl0sWyJGaWx0ZXJfIzEiLFsiMSIsIjIiLCIzIiwiNCIsIjUiLCI2IiwiNyIsIjgiLCI5IiwiMTAiLCIxMSIsIjEyIiwiMTMiLCIxNCIsIjE1IiwiMTYiLCIxNyIsIjE4IiwiMTkiLCIyMCJdXSxbIkZpbHRlcl8jMiIsWyIyIl1dLFsiRmlsdGVyXyMzIixbIjMiLCIxMSIsIjIyIiwiMjciXV0sWyJGaWx0ZXJfIzQiLFsiMCJdXSxbIkZpbHRlcl8jNSIsWyIwIl1dXX0=)](./img/bea_international.png)
+
+
+- **Description:** This dataset contains **quarterly**, not seasonally adjusted U.S. **exports and imports of goods and services** in the current account, and **net financial outflows and inflows** in the financial account from **2005 Q1 to 2024 Q3**.  
+
+  - **Current Account:** The current account measures the flow of goods, services, income, and current transfers into and out of the U.S. It includes trade in goods and services, income receipts from abroad (such as investment income and wages), and current transfers like remittances.
+
+  - **Exports of Goods and Services:** This refers to the value of all goods and services that the U.S. sells to foreign countries. Exports include both tangible products (goods) and intangible products (services) such as financial services, tourism, and intellectual property.
+
+  - **Imports of Goods and Services:** This refers to the value of all goods and services that the U.S. purchases from foreign countries. It encompasses both physical goods (such as electronics, machinery, etc.) and services (such as insurance, transportation, and consulting).
+
+  - **Financial Account:** The financial account records transactions that involve financial assets and liabilities. It reflects the net change in ownership of U.S. financial assets and liabilities, including direct investments, portfolio investments, and other financial instruments. 
+
+  - **Financial Outflow:** The net U.S. Acquisition of Financial Assets Excluding Financial Derivatives (Net Increase in Assets) measures the U.S.'s net purchases of foreign financial assets, such as stocks, bonds, and real estate. A net increase in assets indicates a financial outflow from the U.S. to other countries.
+
+  - **Financial Inflow:** The net U.S. Incurrence of Liabilities Excluding Financial Derivatives (Net Increase in Liabilities) refers to the net increase in foreign investments or loans in the U.S., including foreign direct investment, portfolio investment, and other types of financial liabilities. A net increase in liabilities indicates a financial inflow into the U.S. from foreign entities.
+
+  - **Quarterly, Not Seasonally Adjusted:** The data is provided on a quarterly basis, which allows for a better understanding of short-term fluctuations and trends compared to annual data. The data is not seasonally adjusted because seasonal variations (such as those due to holidays or weather) will be analyzed and removed in later analysis.
+
+
+## Domestic Macroeconomic Factors  
+
+### GDP
+
+- **Data Source:** [U.S. Bureau of Economic Analysis (BEA)](https://apps.bea.gov/iTable/?reqid=19&step=2&isuri=1&categories=survey&_gl=1*8j2fjp*_ga*NDE0NjMxMDI1LjE3MzgwOTQyNDE.*_ga_J4698JNNFT*MTczODE4MjUyNC4zLjEuMTczODE4NTMzNC43LjAuMA..#eyJhcHBpZCI6MTksInN0ZXBzIjpbMSwyLDMsM10sImRhdGEiOltbImNhdGVnb3JpZXMiLCJTdXJ2ZXkiXSxbIk5JUEFfVGFibGVfTGlzdCIsIjUiXSxbIkZpcnN0X1llYXIiLCIyMDA1Il0sWyJMYXN0X1llYXIiLCIyMDI0Il0sWyJTY2FsZSIsIi05Il0sWyJTZXJpZXMiLCJRIl1dfQ==)  
+
+![Figure 2.3: U.S. GDP Over Time.  Source: [BEA](https://apps.bea.gov/iTable/?reqid=19&step=2&isuri=1&categories=survey&_gl=1*8j2fjp*_ga*NDE0NjMxMDI1LjE3MzgwOTQyNDE.*_ga_J4698JNNFT*MTczODE4MjUyNC4zLjEuMTczODE4NTMzNC43LjAuMA..#eyJhcHBpZCI6MTksInN0ZXBzIjpbMSwyLDMsM10sImRhdGEiOltbImNhdGVnb3JpZXMiLCJTdXJ2ZXkiXSxbIk5JUEFfVGFibGVfTGlzdCIsIjUiXSxbIkZpcnN0X1llYXIiLCIyMDA1Il0sWyJMYXN0X1llYXIiLCIyMDI0Il0sWyJTY2FsZSIsIi05Il0sWyJTZXJpZXMiLCJRIl1dfQ==)](./img/GDP.png)
+
+- **Description:** This dataset contains **quarterly** U.S. **Gross Domestic Product (GDP)** in billions from **2005 Q1 to 2024 Q3**.  
+
+  - **Gross Domestic Product (GDP):** GDP is the total monetary value of all goods and services produced within a country’s borders over a specific period, typically measured annually or quarterly. It serves as a comprehensive indicator of a nation's economic performance. GDP includes the value of consumption, investment, government spending, and net exports (exports minus imports). It is often used to compare the economic health of different countries or to track the economic performance of a single country over time.
+
+### Unemployment Rate
+
+- **Data Source:** [U.S. Bureau of Labor Statistics](https://data.bls.gov/pdq/SurveyOutputServlet)  
+
+![Figure 2.4: U.S. Unemployment Rate Over Time.  Source: [BLS](https://data.bls.gov/pdq/SurveyOutputServlet)](./img/unem.png)
+
+- **Description:** This dataset contains **monthly** U.S. **unemployment rate** data from **2005-01 to 2024-12**.   
+
+  - **Unemployment Rate:** The unemployment rate is the percentage of the labor force that is unemployed but actively seeking work. It is a key indicator of economic health, as a high unemployment rate suggests that an economy may be underperforming, with insufficient job opportunities. Conversely, a low unemployment rate indicates a more thriving job market and better economic conditions. It helps policymakers assess the effectiveness of economic policies and determine whether interventions are needed to promote job growth.
+
+### CPI
+
+- **Data Source:** [U.S. Bureau of Labor Statistics](https://data.bls.gov/pdq/SurveyOutputServlet)  
+
+![Figure 2.5: U.S. CPI Over Time.  Source: [BLS](https://data.bls.gov/pdq/SurveyOutputServlet)](./img/cpi.png)
+
+- **Description:** This dataset contains **monthly** U.S. **CPI** data from **2005-01 to 2024-12**.   
+
+  - **Consumer Price Index (CPI):** The Consumer Price Index (CPI) measures the average change in prices paid by consumers for goods and services over time. It is used to track inflation, reflecting the cost of living in a particular country. The CPI is a critical indicator for policymakers, as it helps in adjusting wages, pensions, and social security benefits to keep up with inflation. A rising CPI indicates inflationary pressures, while a falling CPI may signal deflation, both of which have significant implications for the economy.
+
+## Financial Market Factors
+
+### Stock Market
+
+- **Data Source:** [Yahoo Finance](https://finance.yahoo.com/quote/%5EGSPC/)  
+
+![Figure 2.6: S&P 500 Index Over Time.  Source: [Yahoo Finance](https://finance.yahoo.com/quote/%5EGSPC/)](./img/sp500.png)
+
+- **Description:** This dataset contains **daily S&P 500 Index** data from **January 1, 2005, to December 31, 2024**.   
+
+  - **S&P 500 Index:** The S&P 500 Index is a market-capitalization-weighted index of 500 of the largest publicly traded companies in the U.S. It is widely regarded as one of the best representations of the U.S. stock market's overall performance. The index includes companies across various industries and is used by investors to track the health of the U.S. economy and as a benchmark for investment performance. The daily data in this dataset includes key information such as the opening, closing, high, low, and adjusted closing prices for each trading day, along with the trading volume. It is commonly used by analysts, traders, and economists to assess market trends and make informed investment decisions.
+
+### Gold Market  
+
+- **Data Source:** [Investing.com](https://www.investing.com/currencies/xau-usd)  
+
+![Figure 2.7: Spot Gold Price Over Time.  Source: [GoldPrice.org](https://goldprice.org/)](./img/gold_20_year_o_usd_x.png)
+
+
+- **Description:** This dataset contains **weekly Spot Gold** in US Dollar from **January 1, 2005, to December 31, 2024**.  
+
+  - **Spot Gold(XAU/USD):** The Spot Gold price (XAU/USD) refers to the current price of gold for immediate delivery, quoted in US dollars per ounce. It is the most widely used measure of gold's market value and is influenced by factors like global demand for gold, inflation expectations, and economic stability. This price fluctuates throughout the trading day based on market dynamics and is a crucial benchmark in the gold market.
+
+
+### Global Commodity Prices  
+
+- **Data Source:** [S&P Global](https://www.spglobal.com/spdji/en/indices/commodities/sp-gsci/#overview)  
+
+![Figure 2.8: S&P GSCI Index (USD) Over Time.  Source: [S&P Global](https://www.spglobal.com/spdji/en/indices/commodities/sp-gsci/#overview)](./img/sp_gsci.png)
+
+
+- **Description:** This dataset contains **daily S&P GSCI Index** price in US Dollar from **December 31, 2014, to December 31, 2024**.  The S&P GSCI is the first major investable commodity index. It is one of the most widely recognized benchmarks that is broad-based and production weighted to represent the global commodity market beta. The index is designed to be investable by including the most liquid commodity futures, and provides diversification with low correlations to other asset classes.
+
+
+## Real Estate & Tourism Market Factors
+
+### House Price
+
+- **Data Source:** [FRED](https://fred.stlouisfed.org/series/USSTHPI)  
+
+![Figure 2.9: House Price Index for the United States (USSTHPI).  Source: [FRED](https://fred.stlouisfed.org/series/USSTHPI)](./img/house.png)
+
+- **Description:** This dataset contains **quarterly** All-Transactions **House Price Index** (USSTHPI) data for the United States from **January 2005 to October 2024**. The index tracks the price changes of residential properties across the country, reflecting the overall health of the housing market. It provides valuable insights into long-term trends in home prices, which are influenced by factors such as supply and demand, interest rates, and economic conditions. This dataset is widely used for real estate market analysis, economic forecasting, and assessing housing affordability over time.
+
+### Tourism Market
+
+- **Data Source:** [International Trade Administration](https://www.trade.gov/i-94-arrivals-program?anchor=content-node-t14-field-lp-region-1-1)  
+
+![Figure 2.10: Visitor Arrivals Over Time.  Source: [ITA](https://www.trade.gov/i-94-arrivals-program?anchor=content-node-t14-field-lp-region-1-1)](./img/visitor.png)
+
+
+- **Description:** This dataset contains **monthly** Non-U.S. Resident **Visitor Arrivals to the United States** from **January 2005 to December 2024**. It provides insights into the trends and patterns of international tourism, reflecting the number of visitors arriving in the U.S. each month. The data is influenced by factors such as global travel conditions, economic trends, visa policies, and major international events. This dataset is valuable for analyzing tourism trends, supporting economic impact studies, and informing policy decisions related to travel and tourism in the U.S.

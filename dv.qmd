@@ -1,0 +1,287 @@
+---
+title: "Time Series Data Visualization"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+execute:
+    echo: true
+    warning: false
+    message: false
+---
+
+## 1. Trend of U.S. Dollar Index
+
+This is an interactive U.S. Dollar Index candlestick chart. It shows the opening, closing, high, and low prices of the index on a daily basis. You can zoom in or pan to explore data for specific time periods, making it easier to analyze price movements and trends over different time spans.
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+
+dxy <- read.csv("./data/USD.csv",header =TRUE)
+dxy$Date <- as.Date(dxy$Date, format = "%m/%d/%Y")
+figc <- dxy %>% plot_ly(x = ~Date, type = "candlestick",
+                       open = ~Open, close = ~Price,
+                       high = ~High, low = ~Low)
+figc <- figc %>% layout(title = "U.S. Dollar Index (DXY) Candlestick Plot")
+
+figc
+```
+
+The plot shows an upward trend. From 2005 to 2015, the U.S. Dollar Index fluctuated between 70 and 90. In late 2014, it experienced the first sharp increase and reached 100. Between 2015 and 2020, it oscillated between 90 and 100, with notable declines in 2017 and 2020. However, in 2021 and 2022, the index surged again, peaking above 110 before stabilizing around 105.
+
+## 2. Trend of International Trade
+
+::: panel-tabset
+
+## Current Account
+
+The graph shows the overall trends in exports and imports of goods and services. It illustrates how these values have changed over time, helping to identify patterns, fluctuations, and potential trade imbalances.
+
+```{r}
+bea <- read.csv("./data/bea.csv")
+bea$time <- as.Date(seq(from = as.Date("2005-01-01"), to = as.Date("2024-10-01"), by = "quarter"))
+
+gg <- ggplot(bea) + 
+  geom_line(aes(x = time, y = exports/1000, color = "Exports")) +
+  geom_line(aes(x = time, y = imports/1000, color = "Imports")) +
+  labs(x = "Year", y = "Billions of Dollars", color = "Legend", 
+  title = "Trends of Exports and Imports")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The plot shows that export and import trends move in sync over time. However, imports are always about $200 billion higher than exports. It indicates that the U.S. is a major trading country and consistently runs a trade deficit. Both exports and imports saw sharp declines in 2008 and 2020, likely due to the financial crisis and the COVID-19 pandemic.
+
+## Trade Balance
+
+The graph shows the overall trends in trade balance (net exports of goods and services). It helps visualize changes over time and identify patterns in the US international trade performance, such as periods of trade deficits or surpluses.
+
+```{r}
+gg <- ggplot(bea) + 
+  geom_line(aes(x = time, y = balance/1000), color = "purple") +
+  labs(x = "Year", y = "Billions of Dollars", 
+  title = "Trends of Trade Balance")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The trade balance shown in the plot has been consistently negative over the long term, indicating that the US has been running a trade deficit, importing more than it exports. The significant rise in the trade balance around 2008 could be attributed to the global financial crisis, which led to a sharp contraction in global trade. From 2009 to 2020, the trade balance remained relatively stable, with a slight decline, possibly reflecting steady economic conditions and moderate shifts in trade patterns. However, in 2020, there is a sharp drop in the trade balance, which could be linked to the economic disruptions caused by the COVID-19 pandemic, including supply chain interruptions, changes in consumption patterns, and reduced international trade.
+
+## Financial account
+
+The graph shows the overall trends in financial outflows (net increase in assets) and financial inflows (net decrease in assets). It helps visualize changes over time and identify patterns in capital movement.
+
+```{r}
+gg <- ggplot(bea) + 
+  geom_line(aes(x = time, y = net_out/1000, color = "Financial Outflow")) +
+  geom_line(aes(x = time, y = net_in/1000, color = "Financial Inflow")) +
+  labs(x = "Year", y = "Billions of Dollars", color = "Legend",
+  title = "Trends of Financial Inflows and Outflows")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The plot shows that financial inflows and outflows move in sync over time, with significant fluctuations. Inflows are always slightly higher than outflows, indicating that the U.S. consistently attracts more foreign investment than it sends abroad, leading to a net capital inflow.
+
+:::
+
+## 3. Macroeconomic Factors
+
+::: panel-tabset
+
+## GDP
+
+Gross Domestic Product (GDP) is the total value of all goods and services produced within a country, and it consists of four main components: consumption, investment, government spending, and net exports. Consumption refers to household spending on goods and services, while investment includes business capital spending, residential construction, and changes in inventories. Government spending covers expenditures on goods and services, excluding transfer payments, and net exports are the difference between a country's exports and imports. Together, these components provide a comprehensive measure of a country's economic activity.
+
+```{r}
+gdp <- read.csv("./data/gdp.csv")
+gdp$time <- as.Date(seq(from = as.Date("2005-01-01"), to = as.Date("2024-09-01"), by = "quarter"))
+gdp_long <- pivot_longer(gdp, 
+                         cols = c(consumption, investment, net_export, government), 
+                         names_to = "Category", 
+                         values_to = "Value")
+
+gg <- ggplot(gdp_long, aes(x = time, y = Value, fill = Category)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Year", y = "Billions of Dollars", 
+       title = "Total Contribution to GDP by Time and Category", 
+       fill = "Category") +
+  scale_fill_brewer(palette = "Set3") +
+  theme(
+    axis.text = element_text(size = 11),  
+    axis.title = element_text(size = 11, face = 'bold'), 
+    title = element_text(size = 12, hjust = 0.5, face = 'bold'),
+    panel.background = element_rect(fill = "white"), 
+    panel.grid.minor = element_line(color = "gray", linetype = "dotted"),
+    panel.grid.major = element_line(color = "gray", linetype = "dotted")
+  ) +
+  scale_y_continuous(labels = scales::comma_format())
+
+plotly_gg <- ggplotly(gg)
+plotly_gg 
+```
+
+The plot shows the four components of U.S. GDP over time. From earlier analysis, we know that the U.S. consistently runs a $200 billion trade deficit, which aligns with the negative $200 billion net exports in this plot. Government spending has remained relatively stable, while investment has grown slightly. Consumption, however, has increased significantly, rising from $8,551 billion in 2005 to $19,938 billion in 2025. This highlights that consumption is the dominant part of U.S. GDP and suggests that investment may be insufficient, which could hinder technological progress.  
+
+GDP experienced two major declines, one in 2008 due to the financial crisis and another in 2020 caused by COVID-19. The 2008 decline had a lasting impact on GDP, leading to a slower recovery with steady growth afterward. In contrast, the 2020 drop was followed by a rapid rebound, with GDP growth accelerating even beyond its previous trend.
+
+## Unemployment
+
+The unemployment rate is the percentage of the labor force that is unemployed but actively seeking work. It is a key indicator of economic health, as a high unemployment rate suggests that an economy may be underperforming, with insufficient job opportunities. Conversely, a low unemployment rate indicates a more thriving job market and better economic conditions.
+
+```{r}
+data_unem <- read.csv("./data/unem.csv", header=TRUE)
+data_unem$time <- as.Date(data_unem$time)
+gg <- ggplot(data = data_unem, aes(x = time, y = unem)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Rate", title = "U.S. Unemployment Rate Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+From 2008 to 2009, the unemployment rate increased significantly, primarily due to the **global financial crisis**. The economic recession led to business closures, layoffs, and a reduction in investments, causing a massive loss of jobs. This spike in unemployment reflects the severe impact the economic downturn had on the labor market.
+
+From 2009 to 2020, the unemployment rate consistently decreased as the economy recovered. This was due to a **steady economic growth**, increased job creation, and recovery in industries that had been hit hard during the recession. With the rise in consumer demand and business expansions, more job opportunities became available, helping bring the unemployment rate down.
+
+In 2020, the unemployment rate spiked dramatically due to the **COVID-19 pandemic**, which led to widespread lockdowns, business closures, and disruptions in many industries. However, the recovery was quick. By 2022, the unemployment rate returned to pre-pandemic levels. This rapid recovery can be attributed to **government stimulus measures**, the adaptation of businesses to new operating models (such as remote work), and the strong rebound in sectors like technology and e-commerce. 
+
+## CPI
+
+The Consumer Price Index (CPI) measures the average change in prices paid by consumers for goods and services over time. It is used to track inflation, reflecting the cost of living in a particular country.
+
+```{r}
+data_cpi <- read.csv("./data/cpi.csv", header=TRUE)
+data_cpi$time <- as.Date(data_cpi$time)
+gg <- ggplot(data = data_cpi, aes(x = time, y = cpi)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Index", title = "U.S. CPI Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+From 2005 to 2024, the overall trend in the Consumer Price Index (CPI) shows a gradual increase, indicating rising inflation over the period. In 2008, there was a brief spike in CPI, likely due to the **global financial crisis**, but it quickly returned to normal levels as the economy stabilized. However, after 2021, the rate of increase in CPI accelerated, largely due to the **economic effects of the COVID-19 pandemic**, supply chain disruptions, and rising demand as economies reopened. This surge in inflation reflects higher costs in goods and services, influenced by both global and domestic economic factors.
+
+:::
+
+## 4. Financial Market Factors
+
+::: panel-tabset
+
+## Stock Market
+
+The S&P 500 Index is a market-capitalization-weighted index of 500 of the largest publicly traded companies in the U.S. It is widely regarded as one of the best representations of the U.S. stock market's overall performance. The index includes companies across various industries and is used by investors to track the health of the U.S. economy and as a benchmark for investment performance.
+
+```{r}
+library(quantmod)
+getSymbols("^GSPC", src = "yahoo", from = "2005-01-01", to = "2024-12-31") 
+data <- data.frame(Date = index(GSPC), 
+                       Open = GSPC[, "GSPC.Open"], 
+                       High = GSPC[, "GSPC.High"], 
+                       Low = GSPC[, "GSPC.Low"], 
+                       Close = GSPC[, "GSPC.Close"])
+colnames(data) <- c("Date", "Open", "High", "Low", "Close")
+
+figc <- data %>%
+  plot_ly(x = ~Date, type = "candlestick",
+          open = ~Open, close = ~Close,
+          high = ~High, low = ~Low)
+
+figc <- figc %>% layout(title = "S&P 500 Index Candlestick Plot",
+                        xaxis = list(type = "date", title = "Date"),
+                        yaxis = list(title = "Index Price"))
+figc
+```
+
+The S&P 500 shows an overall upward trend, reflecting long-term economic growth. In 2008, it briefly declined due to the financial crisis but quickly recovered. In 2020, despite the pandemic, the index surged, likely due to strong government stimulus and the resilience of the tech sector. After a slight drop in 2022, the index rebounded, driven by market corrections and optimism. While both 2008 and 2020 faced crises, the market responded differently, with a strong recovery in 2020, fueled by stimulus and innovation, while 2022's decline was linked to inflation concerns and rising interest rates.
+
+## Gold Market
+
+The Spot Gold price (XAU/USD) refers to the current price of gold for immediate delivery, quoted in US dollars per ounce. 
+
+```{r}
+xau <- read.csv("./data/xau.csv", header=TRUE)
+xau$Date <- as.Date(xau$Date)
+
+gg <- ggplot(data = xau, aes(x = Date, y = Price)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Dollar ($)", title = "Spot Gold in US Dollar")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The plot shows the trend of spot gold prices over time, with an overall upward trend. Notable surges occurred in 2008-2012, 2019-2020, and 2023-2025. These spikes could be linked to major global events such as the financial crisis, COVID-19, the Russo-Ukrainian War and the Gaza War. Generally, during economic downturns or geopolitical instability, investors tend to favor gold and other precious metals as safe-haven assets.
+
+## Global Commodity Market
+
+The S&P GSCI (Standard & Poor's Goldman Sachs Commodity Index) is a widely recognized benchmark for tracking the performance of the global commodity markets. It represents a diversified basket of 24 commodities, including energy, metals, agricultural products, and livestock. The index is weighted based on the world production of each commodity, with energy commodities such as crude oil and natural gas typically making up a significant portion of the index. The S&P GSCI serves as a key indicator for investors looking to gain exposure to commodity markets and is often used as a reference for commodity-focused investment products like ETFs and futures contracts.
+
+```{r}
+gsci <- read.csv("./data/gsci.csv", header=TRUE)
+gsci$Date <- as.Date(gsci$Date)
+
+gg <- ggplot(data = gsci, aes(x = Date, y = Price)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Dollar ($)", title = "S&P GSCI Index (USD) Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The plot shows a significant increase in the S&P GSCI Index from 2020 to 2022, likely due to supply chain disruptions and rising energy prices.  
+
+The COVID-19 pandemic in 2020 led to severe supply chain challenges, causing volatility in commodity markets. While some commodities, especially energy, saw price drops early in the pandemic, recovery efforts later fueled surging demand and price increases, particularly in energy and metals. As economies reopened, supply chains struggled to keep up, leading to shortages in key commodities such as oil, natural gas, and metals, which drove up prices.  
+
+Another major factor was the energy crisis in 2021-2022. As global energy demand rebounded, supply remained constrained, especially in oil and natural gas. Geopolitical tensions, including Russia's invasion of Ukraine in early 2022, further worsened energy shortages, causing oil and gas prices to soar. Since energy commodities make up a large portion of the S&P GSCI Index, these price spikes significantly impacted its overall trend.
+
+:::
+
+## 5. Real Estate & Tourism Market Factors
+
+::: panel-tabset
+
+## House Price
+
+The House Price Index tracks the price changes of residential properties across the country, reflecting the overall health of the housing market.
+
+```{r}
+house <- read.csv("./data/house.csv", header=TRUE)
+house$time <- as.Date(house$time)
+
+gg <- ggplot(data = house, aes(x = time, y = index)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Index", title = "House Price Index Over Time")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The House Price Index has shown an overall upward trend, indicating steady growth in the housing market. However, between 2007 and 2011, there was a decline in the index, likely due to the global financial crisis, which caused a sharp contraction in the housing market. This period saw widespread defaults, a credit crunch, and a drop in demand for housing. After 2011, the index steadily increased, reflecting the recovery of the housing market, supported by factors such as low interest rates, improved economic conditions, and a resurgence in demand for real estate.
+
+## Tourism Market
+
+We use the Non-U.S. Resident **Visitor Arrivals to the United States** as the indicator that measures the tourism market. It provides insights into the trends and patterns of international tourism, reflecting the number of visitors arriving in the U.S. each month.
+
+```{r}
+visitors <- read.csv("./data/visitors.csv", header=TRUE)
+visitors$time <- as.Date(visitors$time)
+
+gg <- ggplot(data = visitors, aes(x = time, y = count)) +   
+  geom_line(color='purple') +  
+  labs(x = "Year", y = "Number of Visitors", title = "Non-U.S. Resident Visitor Arrivals to the U.S.")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+The data on visitor arrivals to the United States shows a clear seasonal pattern, with a stable, gradual increase from 2005 to 2020. This pattern was driven by consistent global tourism growth and improved travel accessibility. However, in 2020, there was a sharp decline in arrivals due to the COVID-19 pandemic, which caused travel restrictions, lockdowns, and a significant reduction in international mobility. Since then, there has been a slow recovery in visitor numbers, although they have not yet reached pre-pandemic levels. The gradual recovery reflects the ongoing adjustments in the global travel industry and the challenges posed by the lingering effects of the pandemic.
+
+:::
