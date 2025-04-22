@@ -1,5 +1,7 @@
 ---
 title: "Introduction"
+nocite: |
+  @*
 ---
 
 ## Understanding the U.S. Dollar Index
