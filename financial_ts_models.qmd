@@ -182,7 +182,7 @@ output=ARIMA.c(p1=0,p2=6,q1=0,q2=6,data=log(dxy$Adjusted))
 highlight_output(output)
 ```
 
-The ARIMA(0,1,0) model has the lowest BIC value, while the ARIMA(6,1,0) model has the lowest AIC and AICc values. Therefore, we will consider both models for further analysis.
+The ARIMA(0,1,0) model has the lowest BIC value, while the ARIMA(4,1,2) model has the lowest AIC and AICc values. Therefore, we will consider both models for further analysis.
 
 ## auto.arima()
 
@@ -203,10 +203,10 @@ end_line <- length(model_output)  # Last line of output
 cat(model_output[start_line:end_line], sep = "\n")
 ```
 
-**ARIMA(6,1,0)**
+**ARIMA(4,1,2)**
 
 ```{r}
-model_output <- capture.output(sarima(log(dxy$Adjusted), 6,1,0))
+model_output <- capture.output(sarima(log(dxy$Adjusted), 4,1,2))
 start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
 end_line <- length(model_output)  # Last line of output
 cat(model_output[start_line:end_line], sep = "\n")
@@ -221,19 +221,16 @@ end_line <- length(model_output)  # Last line of output
 cat(model_output[start_line:end_line], sep = "\n")
 ```
 
-The diagnostic results are very similar. Since the AR and MA terms in both ARIMA(6,1,0) and ARIMA(1,1,0) are not significant, we will use the ARIMA(0,1,0) model for further analysis.
+The ARIMA(4,1,2) model is preferred because it has the lowest AIC value and most of its coefficients are statistically significant at 0.1% level. Its use of multiple AR and MA terms allows it to better capture the underlying structure and lagged relationships in the time series. This makes it more effective at modeling complex patterns in the data.
 
 ## Model Fitting
 
-**ARIMA(0,1,0)**
+**ARIMA(4,1,2)**
 
 ```{r}
-# Fit ARIMA(0,1,0) model to the log-transformed stock prices
-arima_010 <- Arima(log(dxy$Adjusted), order = c(0,1,0))
-# Get residuals from the fitted ARIMA model
-arima.res <- arima_010$residuals
-# Compute squared residuals
-squared.arima.res <- arima.res^2
+# Fit ARIMA(4,1,2) model to the log-transformed stock prices
+arima_412 <- Arima(log(dxy$Adjusted), order = c(4,1,2))
+summary(arima_412)
 ```
 
 :::
@@ -249,6 +246,11 @@ Fit a GARCH model to the residuals of the ARIMA model.
 To determine the appropriate values for GARCH(p, q), we examine the ACF and PACF plots of the squared residuals from the ARIMA model. Significant spikes in the ACF and PACF at certain lags can provide insight into the orders of p (ARCH terms) and q (GARCH terms) for the GARCH model. Specifically, the number of significant lags in the ACF and PACF can guide the selection of the GARCH model’s parameters.
 
 ```{r}
+# Get residuals from the fitted ARIMA model
+arima.res <- arima_412$residuals
+# Compute squared residuals
+squared.arima.res <- arima.res^2
+
 ggtsdisplay(arima.res, main="ACF and PACF of ARIMA Residuals")
 ggtsdisplay(squared.arima.res, main="ACF and PACF of Squared ARIMA Residuals")
 ```
@@ -311,24 +313,29 @@ invisible(predict(garch_model, n.ahead = 100, plot = TRUE))
 
 :::
 
-### ARIMA(0,1,0)+GARCG(1,1) Model Equation
+### ARIMA(4,1,2)+GARCG(1,1) Model Equation
 
 $$
 \begin{gathered}
 \phi(B)(1-B)^d x_t=\theta(B) w_t \\
 \nabla x_t=x_t-x_{t-1} \\
-\phi(B)=\theta(B)=1 \\
-(1-B) x_t= w_t
+\phi(B)=1-\phi_1 B-\phi_2 B^2-\phi_3 B^3-\phi_4 B^4 \\
+\phi(B)=1+0.1997 B+0.9276 B^2 -0.0075 B^3-0.0154 B^4\\
+\theta(B)=1+\theta_1 B+\theta_2 B^2 \\
+\theta(B)=1+0.2130 B+0.9248 B^2 \\
+(1+0.1997 B+0.9276 B^2 -0.0075 B^3-0.0154 B^4)(1-B) x_t= (1+0.2130 B+0.9248 B^2)w_t
 \end{gathered}
 $$
 
 So, the equation becomes:
 $$
 \begin{gathered}
-x_t= B x_t+w_t \\
+(1-0.8003 B+0.7279 B^2 -0.9351 B^3 -0.0079 B^4+0.0154 B^5) x_t = (1+0.2130 B+0.9248 B^2)w_t \\
+x_t-0.8003 B x_t+0.7279 B^2 x_t -0.9351 B^3 x_t-0.0079 B^4 x_t +0.0154 B^5 x_t = w_t+0.2130 B w_t+0.9248 B^2 w_t \\
+x_t = 0.8003 B x_t - 0.7279 B^2 x_t + 0.9351 B^3 x_t + 0.0079 B^4 x_t - 0.0154 B^5 x_t + w_t+0.2130 B w_t+0.9248 B^2 w_t \\
 w_t=\sigma_t \epsilon_t \\
 var\left(w_t \mid w_{t-1}\right)=\sigma_t^2=\alpha_0+\alpha_1 w_{t-1}^2+\beta_1 \sigma_{t-1}^2 \\
-\sigma_t^2=0.000000094+0.036 w_{t-1}^2+0.96 \sigma_{t-1}^2
+\sigma_t^2=0.000000095+0.036 w_{t-1}^2+0.96 \sigma_{t-1}^2
 \end{gathered}
 $$
 
@@ -359,7 +366,7 @@ models[[best_index]]
 
 The GARCH(1,1) model is selected as the best model based on the lowest AIC value.
 
-We were comparing Method 1: ARIMA(0,1,0) + GARCH(1,1) and Method 2: GARCH(1,1). In fact, these two models are essentially the same, because differencing the log-transformed prices in ARIMA(0,1,0) gives us the log returns, which are the direct input for the GARCH(1,1) model in Method 2.
+We were comparing Method 1: ARIMA(4,1,2) + GARCH(1,1) and Method 2: GARCH(1,1). <!-- In fact, these two models are essentially the same, because differencing the log-transformed prices in ARIMA(0,1,0) gives us the log returns, which are the direct input for the GARCH(1,1) model in Method 2. -->
 
 ## Cross Validation
 
@@ -373,7 +380,7 @@ k <- 4000  # 80% of data length as initial training size
 n <- length(returns)
 
 # Initialize error storage
-err1 <- c()  # ARIMA(0,1,0) + GARCH(1,1)
+err1 <- c()  # ARIMA(4,1,2) + GARCH(1,1)
 err2 <- c()  # GARCH(1,1)
 err3 <- c()  # GARCH(2,1)
 err4 <- c()  # ARCH(4)
@@ -385,8 +392,8 @@ for (i in 1:(n - k)) {
   xtrain <- log.b[1:(k - 1) + i]
   xtest <- log.b[k + i]
   
-  ## Model 1: ARIMA(0,1,0) + GARCH(1,1) on residuals
-  arima.fit <- Arima(xtrain, order = c(0,1,0), include.drift = TRUE)
+  ## Model 1: ARIMA(4,1,2) + GARCH(1,1) on residuals
+  arima.fit <- Arima(xtrain, order = c(4,1,2), include.drift = TRUE)
   arima.res <- residuals(arima.fit)
   fit1 <- garchFit(~ garch(1, 1), data = arima.res, trace = FALSE)
   fcast1 <- predict(fit1, n.ahead = 1)
@@ -418,13 +425,13 @@ for (i in 1:(n - k)) {
 }
 
 # Calculate RMSE for each model
-RMSE1 <- sqrt(mean(err1))  # ARIMA(0,1,0) + GARCH(1,1)
+RMSE1 <- sqrt(mean(err1))  # ARIMA(4,1,2) + GARCH(1,1)
 RMSE2 <- sqrt(mean(err2))  # GARCH(1,1)
 RMSE3 <- sqrt(mean(err3))  # GARCH(2,1)
 RMSE4 <- sqrt(mean(err4))  # ARCH(4)
 
 tabel <- data.frame(
-  Model = c("ARIMA(0,1,0)+GARCH(1,1)", "GARCH(1,1)", "GARCH(2,1)", "ARCH(4)"),
+  Model = c("ARIMA(4,1,2)+GARCH(1,1)", "GARCH(1,1)", "GARCH(2,1)", "ARCH(4)"),
   RMSE = round(c(RMSE1, RMSE2, RMSE3, RMSE4), 4)
 )
 highlight_row <- which.min(tabel$RMSE)
