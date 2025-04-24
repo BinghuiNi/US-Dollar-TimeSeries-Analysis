@@ -1,0 +1,472 @@
+---
+title: Financial TS Models
+format:
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+In the previous sections, we focused on modeling the **trend and mean forecasting** of the U.S. Dollar Index (USD), as well as exploring its relationships with various macroeconomic variables. However, as a key financial market indicator, the USD exhibits **volatility clustering**, where periods of high return variability are followed by similarly turbulent intervals, and calm periods follow one another. To capture and analyze this behavior, we apply **ARCH/GARCH models** in this section. These models help us understand how the **volatility of the USD changes over time**, especially during significant events like the 2008 Financial Crisis and the 2020 COVID-19 pandemic. This analysis provides valuable insights for **risk management and financial decision-making**.
+
+## Time Series Plot
+
+The US Dollar Index is a measure of the value of the US dollar relative to a basket of foreign currencies. It can be considered as a type of asset whose price fluctuates over time, similar to how stock prices or commodity prices behave. Therefore, the USD Index is treated as an asset price, and we can calculate returns based on its price changes to capture the continuous growth rate and time-varying volatility of the USD Index.
+
+::: panel-tabset
+
+## Original USD Price
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(fGarch)
+
+# Load data
+invisible(getSymbols("DX-Y.NYB", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+dxy <- data.frame(Date = index(`DX-Y.NYB`),
+                       Open = `DX-Y.NYB`[, "DX-Y.NYB.Open"], 
+                       High = `DX-Y.NYB`[, "DX-Y.NYB.High"], 
+                       Low = `DX-Y.NYB`[, "DX-Y.NYB.Low"], 
+                       Close = `DX-Y.NYB`[, "DX-Y.NYB.Close"],
+                       Adjusted = `DX-Y.NYB`[,"DX-Y.NYB.Adjusted"])
+colnames(dxy) <- c("Date", "Open", "High", "Low", "Close", "Adjusted")
+dxy <- na.omit(dxy)
+dxy$Date <- as.Date(dxy$Date, format = "%m/%d/%Y")
+figc <- dxy %>% plot_ly(x = ~Date, type = "candlestick",
+                       open = ~Open, close = ~Close,
+                       high = ~High, low = ~Low)
+figc <- figc %>% layout(title = "U.S. Dollar Index Candlestick Plot")
+
+figc
+```
+
+## Log Price
+
+```{r}
+gg <- ggplot(dxy, aes(x = Date, y = log(Adjusted))) +   
+  geom_line(color = 'purple') +  
+  labs(x = "Year", title = "Log-transformed USD")
+
+plotly_gg <- ggplotly(gg)
+plotly_gg
+```
+
+When the log transformation is applied to the USD prices, the resulting series becomes less variable compared to the original price series. This log transformation helps in reducing the price-dependent variance, making the series more suitable for analysis, as it transforms the data to a more manageable scale.
+
+## Differences of Log Price (Returns)
+
+We use log differences to calculate returns, which are comparable to percentage changes in stock prices. Specifically, if $P_t$ is the adjusted price at time $t$, the log return is calculated as $\log(P_t) - \log(P_{t-1}) = \log\left(\frac{P_t}{P_{t-1}}\right)$. This transformation is beneficial because it makes returns additive over time. It also helps stabilize variance, which is important for modeling volatility.
+
+```{r}
+returns <- diff(log(dxy$Adjusted))
+chartSeries(xts(returns, order.by = dxy$Date[-1]), theme = "white") 
+```
+
+The differenced log prices of the USD appear more mean-reverting, indicating that the series tends to return to a central value over time. Additionally, the variance of the differenced log series changes over time, suggesting a noticeable pattern of volatility clustering. This behavior is common in financial time series and is often modeled using ARCH or GARCH models.
+
+:::
+
+## ACF and PACF Plots
+
+::: panel-tabset
+
+## Returns
+
+```{r}
+ggtsdisplay(returns, main="ACF and PACF of Returns")
+```
+
+Both the ACF and PACF plots of returns show few significant autocorrelations. This indicates that the mean structure of returns is limited.
+
+## Absolute Returns
+
+```{r}
+ggtsdisplay(abs(returns), main="ACF and PACF of Absolute Returns")
+```
+
+## Squared Returns
+
+```{r}
+ggtsdisplay(returns^2, main="ACF and PACF of Squared Returns")
+```
+
+:::
+
+While the raw returns appear to be uncorrelated, the ACF and PACF plots of $|r_t|$ and $r_t^2$ show significant autocorrelations at multiple lags. This provides strong evidence that the returns are not independently and identically distributed, and supports the need for conditional variance models such as ARCH or GARCH to capture the underlying time-varying volatility structure.
+
+## ARIMA + GARCH Model
+
+There are two common approaches to fitting a GARCH model to time series data. The first approach involves fitting an ARIMA model to the actual prices to capture the conditional mean dynamics. The residuals from the ARIMA model are then used to fit a GARCH model to model the time-varying volatility. The second approach is to apply the GARCH model directly to the returns series.
+
+Here, we first perform the ARIMA + GARCH approach.
+
+### ARIMA on Log Prices
+
+Fit an ARIMA model to the log-transformed prices.
+
+::: panel-tabset
+
+## Model Selection
+
+```{r}
+ggtsdisplay(log(dxy$Adjusted), main="ACF and PACF of Log Prices")
+```
+
+The ACF plot of the log-transformed USD prices shows significant autocorrelations at multiple lags. This gradual decay suggests that the log prices exhibit long-term dependencies, indicating differnecing is needed to make the series stationary.
+
+```{r}
+ggtsdisplay(diff(log(dxy$Adjusted)), main="ACF and PACF of Differenced Log Prices")
+```
+
+The ACF and PACF plots show a significant spike at lag 6, as well as few spikes beyond lag 20. These patterns suggest that the appropriate orders for both p and q in the ARIMA model could be 0 or 6.
+
+## Manual Search
+
+```{r}
+ARIMA.c = function(p1, p2, q1, q2, data) {
+  d = 1
+  i = 1
+  temp = data.frame()
+  ls = matrix(rep(NA, 6 * 1000), nrow = 1000)
+  
+  for (p in p1:p2) {
+    for (q in q1:q2) {
+          if (p + d + q <= 9) {
+            
+            model <- tryCatch({
+              Arima(data, order = c(p, d, q), include.drift = TRUE)
+            }, error = function(e) {
+              return(NULL)
+            })
+            
+            if (!is.null(model)) {
+              ls[i, ] = c(p, d, q, model$aic, model$bic, model$aicc)
+              i = i + 1
+            }
+          }
+        }
+      }
+      temp = as.data.frame(ls)
+      names(temp) = c("p", "d", "q", "AIC", "BIC", "AICc")
+      temp = na.omit(temp)
+      return(temp)
+}
+
+highlight_output = function(output, type="ARIMA") {
+    highlight_row <- c(which.min(output$AIC), which.min(output$BIC), which.min(output$AICc))
+    knitr::kable(output, align = 'c', caption = paste("Comparison of", type, "Models")) %>%
+    kable_styling(full_width = FALSE, position = "center") %>%
+    row_spec(highlight_row, bold = TRUE, background = "#FFFF99")  # Highlight row in yellow
+}
+
+output=ARIMA.c(p1=0,p2=6,q1=0,q2=6,data=log(dxy$Adjusted))
+highlight_output(output)
+```
+
+The ARIMA(0,1,0) model has the lowest BIC value, while the ARIMA(6,1,0) model has the lowest AIC and AICc values. Therefore, we will consider both models for further analysis.
+
+## auto.arima()
+
+```{r}
+auto.arima(log(dxy$Adjusted))
+```
+
+The `auto.arima()` function suggests an ARIMA(1,1,0) model.
+
+## Model Diagnostics
+
+**ARIMA(0,1,0)**
+
+```{r}
+model_output <- capture.output(sarima(log(dxy$Adjusted), 0,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+**ARIMA(6,1,0)**
+
+```{r}
+model_output <- capture.output(sarima(log(dxy$Adjusted), 6,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+**ARIMA(1,1,0)**
+
+```{r}
+model_output <- capture.output(sarima(log(dxy$Adjusted), 1,1,0))
+start_line <- grep("Coefficients", model_output)  # Locate where coefficient details start
+end_line <- length(model_output)  # Last line of output
+cat(model_output[start_line:end_line], sep = "\n")
+```
+
+The diagnostic results are very similar. Since the AR and MA terms in both ARIMA(6,1,0) and ARIMA(1,1,0) are not significant, we will use the ARIMA(0,1,0) model for further analysis.
+
+## Model Fitting
+
+**ARIMA(0,1,0)**
+
+```{r}
+# Fit ARIMA(0,1,0) model to the log-transformed stock prices
+arima_010 <- Arima(log(dxy$Adjusted), order = c(0,1,0))
+# Get residuals from the fitted ARIMA model
+arima.res <- arima_010$residuals
+# Compute squared residuals
+squared.arima.res <- arima.res^2
+```
+
+:::
+
+### GARCH on Residuals
+
+Fit a GARCH model to the residuals of the ARIMA model.
+
+::: panel-tabset
+
+## Model Selection
+
+To determine the appropriate values for GARCH(p, q), we examine the ACF and PACF plots of the squared residuals from the ARIMA model. Significant spikes in the ACF and PACF at certain lags can provide insight into the orders of p (ARCH terms) and q (GARCH terms) for the GARCH model. Specifically, the number of significant lags in the ACF and PACF can guide the selection of the GARCH model’s parameters.
+
+```{r}
+ggtsdisplay(arima.res, main="ACF and PACF of ARIMA Residuals")
+ggtsdisplay(squared.arima.res, main="ACF and PACF of Squared ARIMA Residuals")
+```
+
+We can see that the ACF remains significant for the first 40 lags, while the PACF is significant up to lag 9, with a few individual significant spikes thereafter. We will perform a search for q=0:9 and p=0:9.
+
+## Manual Search
+
+```{r}
+# Initialize list to store models
+models <- list()
+cc <- 1
+
+# Loop over GARCH(p, q) combinations
+for (p in 1:9) {
+  for (q in 0:9) {
+    models[[cc]] <- garch(arima.res, order = c(q, p), trace = FALSE)
+    cc <- cc + 1
+  }
+}
+
+# Extract AIC values for all models
+GARCH_AIC <- sapply(models, AIC)
+
+# Find and return the best model (lowest AIC)
+best_index <- which.min(GARCH_AIC)
+models[[best_index]]
+```
+
+This suggests that the best model is GARCH(1,1), as it yields the lowest AIC, indicating a better fit to the data compared to other models.
+
+## Model Fitting
+
+```{r}
+# Fit a GARCH(1,1) model to ARIMA residuals and display summary
+garch_model <- garchFit(~ garch(1,1), data = arima.res, trace = FALSE)
+summary(garch_model)
+```
+
+Both coefficients in the GARCH(1,1) model are significant at the 0.1% level, indicating that both the ARCH and GARCH effects are statistically significant. This suggests that the volatility of the residuals is influenced by both past squared residuals (ARCH effect) and past conditional variances (GARCH effect).
+
+The Ljung-Box test results on standardized residuals show no significant serial correlation, confirming that the residuals behave like white noise, and the model has appropriately captured the structure in the returns.
+
+The ARCH LM tests on squared standardized residuals suggest that no significant ARCH effects remain in the residuals, supporting that the model has appropriately captured the volatility clustering.
+
+```{r}
+# Extract residuals and use checkresiduals from forecast
+garch_res <- residuals(garch_model)
+
+# Diagnostic plots on residuals
+checkresiduals(garch_res)
+```
+
+## Forecasting
+
+```{r}
+# Predict 100 steps ahead using the fitted GARCH(1,1) model
+invisible(predict(garch_model, n.ahead = 100, plot = TRUE))
+```
+
+:::
+
+### ARIMA(0,1,0)+GARCG(1,1) Model Equation
+
+$$
+\begin{gathered}
+\phi(B)(1-B)^d x_t=\theta(B) w_t \\
+\nabla x_t=x_t-x_{t-1} \\
+\phi(B)=\theta(B)=1 \\
+(1-B) x_t= w_t
+\end{gathered}
+$$
+
+So, the equation becomes:
+$$
+\begin{gathered}
+x_t= B x_t+w_t \\
+w_t=\sigma_t \epsilon_t \\
+var\left(w_t \mid w_{t-1}\right)=\sigma_t^2=\alpha_0+\alpha_1 w_{t-1}^2+\beta_1 \sigma_{t-1}^2 \\
+\sigma_t^2=0.000000094+0.036 w_{t-1}^2+0.96 \sigma_{t-1}^2
+\end{gathered}
+$$
+
+## GARCH Model
+
+The second approach involves directly fitting a GARCH model to the returns, without fitt the ARIMA model. In this method, we inspect the ACF and PACF of the squared returns, rather than using ARIMA residuals, to determine the appropriate GARCH model.
+
+```{r}
+# Initialize model storage
+models <- list()
+cc <- 1
+
+# Grid search for GARCH(p, q), where p = ARCH order, q = GARCH order
+for (p in 1:9) {
+  for (q in 0:9) {
+    models[[cc]] <- garch(returns, order = c(q, p), trace = FALSE)
+    cc <- cc + 1
+  }
+}
+
+# Extract AIC values
+garch_aic <- sapply(models, AIC)
+
+# Find best model (lowest AIC)
+best_index <- which.min(GARCH_AIC)
+models[[best_index]]
+```
+
+The GARCH(1,1) model is selected as the best model based on the lowest AIC value.
+
+We were comparing Method 1: ARIMA(0,1,0) + GARCH(1,1) and Method 2: GARCH(1,1). In fact, these two models are essentially the same, because differencing the log-transformed prices in ARIMA(0,1,0) gives us the log returns, which are the direct input for the GARCH(1,1) model in Method 2.
+
+## Cross Validation
+
+```{r}
+# Step 1: Prepare data
+log.b <- log(dxy$Adjusted)
+returns <- diff(log.b)
+
+# Set rolling window parameters
+k <- 4000  # 80% of data length as initial training size
+n <- length(returns)
+
+# Initialize error storage
+err1 <- c()  # ARIMA(0,1,0) + GARCH(1,1)
+err2 <- c()  # GARCH(1,1)
+err3 <- c()  # GARCH(2,1)
+err4 <- c()  # ARCH(4)
+
+# Rolling forecast loop
+for (i in 1:(n - k)) {
+
+  # Training and test data
+  xtrain <- log.b[1:(k - 1) + i]
+  xtest <- log.b[k + i]
+  
+  ## Model 1: ARIMA(0,1,0) + GARCH(1,1) on residuals
+  arima.fit <- Arima(xtrain, order = c(0,1,0), include.drift = TRUE)
+  arima.res <- residuals(arima.fit)
+  fit1 <- garchFit(~ garch(1, 1), data = arima.res, trace = FALSE)
+  fcast1 <- predict(fit1, n.ahead = 1)
+  
+  ## Model 2: GARCH(1,1) on returns
+  returns_train <- diff(xtrain)
+  fit2 <- garchFit(~ garch(1, 1), data = returns_train, trace = FALSE)
+  fcast2 <- predict(fit2, n.ahead = 1)
+
+  ## Model 3: GARCH(2,1) on returns (new model)
+  fit3 <- garchFit(~ garch(2, 1), data = returns_train, trace = FALSE)
+  fcast3 <- predict(fit3, n.ahead = 1)
+
+  ## Model 4: ARCH(4) on returns (new model)
+  fit4 <- garchFit(~ garch(4, 0), data = returns_train, trace = FALSE)
+  fcast4<- predict(fit4, n.ahead = 1)
+  
+  # Forecasting log price (meanForecast is on returns, so add to last value of xtrain)
+  pred1 <- tail(xtrain, 1) + fcast1$meanForecast
+  pred2 <- tail(xtrain, 1) + fcast2$meanForecast
+  pred3 <- tail(xtrain, 1) + fcast3$meanForecast
+  pred4 <- tail(xtrain, 1) + fcast4$meanForecast
+
+  # Squared errors for each model
+  err1 <- c(err1, (pred1 - xtest)^2)
+  err2 <- c(err2, (pred2 - xtest)^2)
+  err3 <- c(err3, (pred3 - xtest)^2)
+  err4 <- c(err4, (pred4 - xtest)^2)
+}
+
+# Calculate RMSE for each model
+RMSE1 <- sqrt(mean(err1))  # ARIMA(0,1,0) + GARCH(1,1)
+RMSE2 <- sqrt(mean(err2))  # GARCH(1,1)
+RMSE3 <- sqrt(mean(err3))  # GARCH(2,1)
+RMSE4 <- sqrt(mean(err4))  # ARCH(4)
+
+tabel <- data.frame(
+  Model = c("ARIMA(0,1,0)+GARCH(1,1)", "GARCH(1,1)", "GARCH(2,1)", "ARCH(4)"),
+  RMSE = round(c(RMSE1, RMSE2, RMSE3, RMSE4), 4)
+)
+highlight_row <- which.min(tabel$RMSE)
+kable(tabel, align = 'c', caption = "Model Comparison Based on RMSE") %>%
+  kable_styling(full_width = FALSE, position = "center") %>%
+  row_spec(highlight_row, bold = TRUE, background = "#FFFF99")
+```
+
+## Volatality Plot
+
+```{r}
+# Extract the conditional variances from GARCH
+ht <- garch_model@h.t
+
+# Create dataframe and plot
+vol_df <- data.frame(Date = dxy$Date, Volatility = ht)
+
+p <- ggplot(vol_df, aes(x = Date, y = Volatility)) +
+  geom_line(color = "#ff9933") +
+  labs(
+    title = "Volatility Plot (Conditional Variance from GARCH Model)",
+    x = "Date",
+    y = "Conditional Variance"
+  ) +
+  theme_minimal()
+
+ggplotly(p)
+```
+
+The plot shows the volatility (conditional variance) of the U.S. Dollar Index returns as modeled by a GARCH model. From the graph, we can see significant spikes in volatility during specific periods, which correspond to major global or domestic economic events:
+
+1. **2008 Financial Crisis (Mid 2008 – 2009):**  
+   The global financial crisis brought massive uncertainty to financial markets. The collapse of Lehman Brothers, the bailout of key financial institutions, and the widespread loss of confidence in the global financial system caused extreme market turmoil. Although the U.S. dollar often strengthens as a safe-haven during crises, the unprecedented disruptions led to highly volatile returns in the USD.
+
+2. **2011 U.S. Debt-Ceiling Crisis:**  
+   In 2011, political deadlock over raising the U.S. debt ceiling pushed the Treasury close to default. Although a last-minute agreement was reached, Standard & Poor’s downgraded the U.S. credit rating from AAA to AA+ on August 5. This is the first downgrade for U.S. in history. This triggered heightened uncertainty and sharp market movements, causing significant fluctuations in the dollar index.
+
+3. **2014–2015 Oil Price Crash:**  
+   A dramatic drop in global oil prices, driven by oversupply and weakened demand, introduced new economic instability, especially for oil-dependent countries. Shifting expectations about U.S. monetary policy, global growth, and commodity markets led to increased volatility in the dollar. During this period, the Federal Reserve also began signaling future tightening, contributing to market swings.
+
+4. **COVID-19 Pandemic (2020):**  
+   The onset of the COVID-19 pandemic in early 2020 caused an abrupt global economic shock. As countries imposed lockdowns and supply chains collapsed, financial markets experienced extreme volatility. Central banks, including the Federal Reserve, responded with aggressive stimulus measures, such as emergency rate cuts and large-scale asset purchases, leading to major fluctuations in the U.S. dollar.
+
+5. **Federal Reserve Policy Shift (2022):**  
+   In late 2022, U.S. inflation data (CPI) came in lower than expected, leading markets to anticipate a slowdown in the Federal Reserve's interest rate hikes. As a result, investors began unwinding long dollar positions and shifted capital toward riskier assets, which caused a sharp drop and increased volatility in the U.S. Dollar Index.
