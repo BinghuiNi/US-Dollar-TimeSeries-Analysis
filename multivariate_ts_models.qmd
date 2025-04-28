@@ -109,6 +109,7 @@ library(ggplot2)
 library(forecast)
 library(astsa) 
 library(xts)
+library(zoo)
 library(tseries)
 library(fpp2)
 library(fma)
@@ -171,22 +172,6 @@ ir$Date <- as.Date(ir$Date)
 
 oil <- read.csv("./data/oil_price.csv")
 oil$Date <- as.Date(oil$Date)
-
-# time series
-dxy_ts <- ts(log(dxy$Close), start=c(2005,1), frequency=252)
-balance_ts <- ts(bea$balance, start=c(2005,1), end=c(2024,3), frequency=4)
-gdp_ts <- ts(gdp$total, start=c(2005,1), end=c(2024,3), frequency=4)
-unem_ts <- ts(log(data_unem$unem), start=c(2005,1), end=c(2023,12), frequency=12)
-cpi_ts <- ts(data_cpi$cpi, start=c(2005,1), end=c(2023,12), frequency=12)
-sp5_ts <- ts(GSPC$GSPC.Close, start=c(2005,1), frequency=252)
-xau_ts <- ts(log(xau$Price), start=c(2005,1), end=c(2024,52), frequency=52)
-oil_ts <- ts(log(oil$Oil), start=c(2005,1), end=c(2024,12), frequency=12)
-gsci_ts <- ts(log(gsci$Price), start=c(2014,252), frequency=252)
-house_ts <- ts(house$index, start=c(2005,1), end=c(2024,4), frequency=4)
-visitors_ts <- ts(log(visitors$count), start=c(2005,1), end=c(2024,12), frequency=12)
-btc_ts <- ts(log(`BTC-USD`[,"BTC-USD.Close"]), start=c(2015,1), frequency=252)
-egg_ts <- ts(log(egg$Price), start=c(2005,1), end=c(2024,12), frequency=12)
-ir_ts <- ts(ir$IR, start=c(2005,1), end=c(2024,12), frequency=12)
 
 set.seed(123)
 library(kableExtra)
@@ -303,16 +288,16 @@ cpi_q <- data_cpi %>%
   summarise(cpi = mean(cpi, na.rm = TRUE))
 
 df1 <- data.frame(Date = gsci_q$quarter, 
-                  dxy = log(dxy_q$Close)[41:80], 
-                  deficit = log(abs(bea$balance))[41:80],
-                  gsci = log(gsci_q$gsci),
-                  cpi = log(cpi_q$cpi)[41:80]
+                  USD = log(dxy_q$Close)[41:80], 
+                  Deficit = log(abs(bea$balance))[41:80],
+                  CommodityPrice = log(gsci_q$gsci),
+                  CPI = log(cpi_q$cpi)[41:80]
                   )
 
-plot_usd <- plot_ly(df1, x = ~Date, y = ~dxy, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
-plot_deficit <- plot_ly(df1, x = ~Date, y = ~deficit, type = 'scatter', mode = 'lines', name = 'Trade Deficit') 
-plot_gsci <- plot_ly(df1, x = ~Date, y = ~gsci, type = 'scatter', mode = 'lines', name = 'Commodity Price') 
-plot_cpi <- plot_ly(df1, x = ~Date, y = ~cpi, type = 'scatter', mode = 'lines', name = 'CPI') 
+plot_usd <- plot_ly(df1, x = ~Date, y = ~USD, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_deficit <- plot_ly(df1, x = ~Date, y = ~Deficit, type = 'scatter', mode = 'lines', name = 'Trade Deficit') 
+plot_gsci <- plot_ly(df1, x = ~Date, y = ~CommodityPrice, type = 'scatter', mode = 'lines', name = 'Commodity Price') 
+plot_cpi <- plot_ly(df1, x = ~Date, y = ~CPI, type = 'scatter', mode = 'lines', name = 'CPI') 
 
 subplot(plot_usd, plot_deficit, plot_gsci, plot_cpi, nrows = 4, shareX = TRUE) %>%
   layout(title = "Trend of U.S. Dollar and Related Variables", showlegend = FALSE,
@@ -349,10 +334,10 @@ fun.var <- function(ts, year, p, s){
   fit <- VAR(ts, p=p, type='both')
   fcast <- predict(fit, n.ahead = s)
   
-  f1<-fcast$fcst$dxy
-  f2<-fcast$fcst$deficit
-  f3<-fcast$fcst$gsci
-  f4<-fcast$fcst$cpi
+  f1<-fcast$fcst$USD
+  f2<-fcast$fcst$Deficit
+  f3<-fcast$fcst$CommodityPrice
+  f4<-fcast$fcst$CPI
   ff<-data.frame(f1[,1],f2[,1],f3[,1],f4[,1])
   ff<-ts(ff,start=c(year,1),frequency = s)
   return(ff)
@@ -393,12 +378,12 @@ for (i in 1:num_iter) {
 }
 
 rmse_combined <- as.data.frame(rbind(rmse1, rmse2))
-colnames(rmse_combined) = c("usd","deficit","gsci","cpi")
+colnames(rmse_combined) = c("USD","Deficit","CommodityPrice","CPI")
 rmse_combined$Model <- c(rep("VAR(1)", n-k),rep("VAR(2)", n-k))
 rmse_combined$Date <- time(data)[(k+1):n]
 
 # Create the USD RMSE plot with a legend
-ggplot(data = rmse_combined, aes(x = Date, y = usd, color = Model)) + 
+ggplot(data = rmse_combined, aes(x = Date, y = USD, color = Model)) + 
   geom_line() +
   labs(
     title = "CV Error for USD",
@@ -416,7 +401,7 @@ VAR(1) is slightly better.
 $$
 \begin{aligned}
 \left[\begin{array}{l}
-\hat{USD_t} \\ \hat{Deficit_t} \\ \hat{Commodity_t} \\ \hat{CPI_t}
+\hat{USD_t} \\ \hat{Deficit_t} \\ \hat{CommodityPrice_t} \\ \hat{CPI_t}
 \end{array}\right] &= \left[\begin{array}{ccc}
 0.667614 & 0.004326 & 0.069535 & 0.248191 \\
 -1.498555 & 0.421178 & 0.030080 & 1.097922 \\
@@ -425,7 +410,7 @@ $$
 \end{array}\right] \left[\begin{array}{l}
 \text{USD}_{t-1} \\
 \text{Deficit}_{t-1} \\
-\text{Commodity}_{t-1} \\
+\text{CommodityPrice}_{t-1} \\
 \text{CPI}_{t-1}
 \end{array}\right]
 \end{aligned}
@@ -436,9 +421,11 @@ $$
 ```{r}
 # Fit a VAR(1) model including both a constant and trend
 fit <- VAR(data, p = 1, type = "both")
-
-forecast(fit) %>%
-  autoplot() + xlab("Year")
+forecast(fit, h=h) %>%
+  autoplot() + 
+  scale_x_continuous(breaks = 2015:2027) +
+  xlab("Year") +
+  theme_minimal()
 ```
 
 I believe the forecast is very good. The VAR(1) model has effectively captured the pattern of four varibales.
@@ -447,9 +434,501 @@ I believe the forecast is very good. The VAR(1) model has effectively captured t
 
 ## VAR: USD ~ Interest Rate + CPI + Unemployment Rate + GDP
 
+Let's now analyze how macroeconomic variables, such as interest rate, CPI, unemployment rate, and GDP, interact with the US Dollar Index.
+
+::: panel-tabset
+
+## Time Series Plot
+
+```{r}
+ir_q <- ir %>%
+  mutate(quarter = floor_date(Date, "quarter")) %>% 
+  group_by(quarter) %>%
+  summarise(IR = mean(IR, na.rm = TRUE))
+unem_q <- data_unem %>%
+  mutate(quarter = floor_date(time, "quarter")) %>%
+  group_by(quarter) %>%
+  summarise(unem = mean(unem, na.rm = TRUE))
+
+df2 <- data.frame(Date = dxy_q$quarter, 
+                  USD = log(dxy_q$Close), 
+                  InterestRate = log(ir_q$IR),
+                  CPI = log(cpi_q$cpi),
+                  UnemploymentRate = log(unem_q$unem),
+                  GDP = log(gdp$total)
+                  )
+
+plot_usd <- plot_ly(df2, x = ~Date, y = ~USD, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_ir <- plot_ly(df2, x = ~Date, y = ~InterestRate, type = 'scatter', mode = 'lines', name = 'Interest Rate') 
+plot_cpi <- plot_ly(df2, x = ~Date, y = ~CPI, type = 'scatter', mode = 'lines', name = 'CPI') 
+plot_unem <- plot_ly(df2, x = ~Date, y = ~UnemploymentRate, type = 'scatter', mode = 'lines', name = 'unemployment Rate') 
+plot_gdp <- plot_ly(df2, x = ~Date, y = ~GDP, type = 'scatter', mode = 'lines', name = 'GDP') 
+
+subplot(plot_usd, plot_ir, plot_cpi, plot_unem, plot_gdp, nrows = 5, shareX = TRUE) %>%
+  layout(title = "Trend of U.S. Dollar and Related Variables", showlegend = FALSE,
+    xaxis = list(title = 'Date'),
+    yaxis = list(title = 'U.S. Dollar'),
+    yaxis2 = list(title = 'Interest Rate'),
+    yaxis3 = list(title = 'CPI'),
+    yaxis4 = list(title = 'Unemployment Rate'),
+    yaxis5 = list(title = 'GDP'))
+```
+
+The trend of the USD and interest rate is very similar.
+
+## Parameter(p) Selection
+
+```{r}
+ts_df2 <- ts(df2[,-1], start = c(2005,1), frequency = 4)
+VARselect(ts_df2, lag.max=6, type="both") 
+```
+
+Based on the results, the lag length could be 1, 2, or 3.
+
+## Fit Models
+
+```{r}
+summary(fit <- VAR(ts_df2, p=1, type="both"))
+summary(fit <- VAR(ts_df2, p=2, type="both"))
+summary(fit <- VAR(ts_df2, p=3, type="both"))
+```
+
+The model with p=1 or p=2 looks good. However, only a few variables are significant in the model with p=3. Next, we will perform cross-validation to determine the best model.
+
+## Cross Validation
+
+```{r}
+fun.var.2 <- function(ts, year, p, s){
+  fit <- VAR(ts, p=p, type='both')
+  fcast <- predict(fit, n.ahead = s)
+  
+  f1<-fcast$fcst$USD
+  f2<-fcast$fcst$InterestRate
+  f3<-fcast$fcst$CPI
+  f4<-fcast$fcst$UnemploymentRate
+  f5<-fcast$fcst$GDP
+  ff<-data.frame(f1[,1],f2[,1],f3[,1],f4[,1],f5[,1])
+  ff<-ts(ff,start=c(year,1),frequency = s)
+  return(ff)
+}
+data <- ts_df2
+n=nrow(data)
+n_var = ncol(data)
+h <- 4  # h: Forecast horizon
+# k: Initial training set
+# Calculate k as 1/3rd of the data, rounded down to the nearest multiple of 12
+k <- floor(n / 3 / h) * h
+num_iter <- (n - k) / h  # Number of rolling iterations
+
+# Initialize matrices for RMSE
+rmse1 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 1
+rmse2 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 2
+rmse3 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 3
+
+# Define rolling start time
+st <- tsp(data)[1] + (k - 1) / h 
+
+# Walk-Forward Validation Loop
+for (i in 1:num_iter) {
+  xtrain <- window(data, end = st + i - 1)
+  xtest <- window(data, start = st + (i - 1) + 1/h, end = st + i)  # Test set for the next 12 months
+  test_start_year <- st + (i-1) + 1/h #starting year for predication, i.e. xtest
+
+  ######## VAR(1) ############
+  ff1 <- fun.var.2(xtrain, test_start_year, p=1, s=h)
+  ######## VAR(2) ############
+  ff2 <- fun.var.2(xtrain, test_start_year, p=2, s=h)
+  ######## VAR(3) ############
+  ff3 <- fun.var.2(xtrain, test_start_year, p=3, s=h)
+  
+  ##### collecting errors ######
+  a = h*i-h+1
+  b= h*i
+  rmse1[c(a:b),]  <-abs(ff1-xtest)
+  rmse2[c(a:b),]  <-abs(ff2-xtest)
+  rmse3[c(a:b),]  <-abs(ff3-xtest)
+}
+
+rmse_combined <- as.data.frame(rbind(rmse1, rmse2, rmse3))
+colnames(rmse_combined) = c("USD","InterestRate","CPI","UnemploymentRate","GDP")
+rmse_combined$Model <- c(rep("VAR(1)", n-k),rep("VAR(2)", n-k),rep("VAR(3)", n-k))
+rmse_combined$Date <- time(data)[(k+1):n]
+
+# Create the USD RMSE plot with a legend
+ggplot(data = rmse_combined, aes(x = Date, y = USD, color = Model)) + 
+  geom_line() +
+  labs(
+    title = "CV Error for USD",
+    x = "Date",
+    y = "Error",
+    color = "Model"
+  ) +
+  theme_minimal()
+```
+
+VAR(1) model is much better.
+
+## Model Equation
+
+$$
+\begin{aligned}
+\left[\begin{array}{l}
+\hat{USD_t} \\ \hat{InterestRate_t} \\ \hat{CPI_t} \\ \hat{UnemploymentRate_t} \\ \hat{GDP_t}
+\end{array}\right] &= \left[\begin{array}{ccc}
+0.8602541 & -0.0121483 & 0.4560117 & -0.0894047 & -0.2034453 \\
+2.94889 & 0.75927 & 1.47241 & -0.35278 & 3.51256 \\
+-0.0097524 & -0.0015307 & 0.6599743 & 0.0148023 & 0.3207071\\
+-0.324474 & 0.019355 & 2.673199 & 0.704855 & -2.635176 \\
+0.0481664 & 0.0003173 & -0.2530517 & 0.0390789 & 1.2398195
+\end{array}\right] \left[\begin{array}{l}
+\text{USD}_{t-1} \\
+\text{InterestRate}_{t-1} \\
+\text{CPI}_{t-1} \\
+\text{UnemploymentRate}_{t-1} \\
+\text{GDP}_{t-1}
+\end{array}\right]
+\end{aligned}
+$$
+
+## Forecast
+
+```{r}
+# Fit a VAR(1) model including both a constant and trend
+fit <- VAR(data, p = 1, type = "both")
+
+forecast(fit, h=h) %>%
+  autoplot() + 
+  xlab("Year") +
+  theme_minimal()
+```
+
+I believe the forecast is very good. The VAR(1) model has effectively captured the pattern of five varibales.
+
+:::
+
 ## VAR: USD ~ Stock Price + Bitcoin Price
 
+Now, let's analyze how the US Dollar Index interacts with other financial assets, such as the S&P 500 Index and Bitcoin.
+
+::: panel-tabset
+
+## Time Series Plot
+
+```{r}
+# USD and S&P500 available on trading days
+# Bitcoin prices (2015-2024) available daily
+
+# Extract trading days
+dxy_15 <- dxy[2523:dim(dxy)[1],]
+sp5_15 <- GSPC[2518:dim(GSPC)[1],]
+trading_days <- as.Date(intersect(as.Date(rownames(dxy_15)),as.Date(index(sp5_15))))
+dxy_15 <- filter(dxy_15, Date %in% trading_days)
+sp5_15 <- sp5_15[trading_days]
+btc_15 <- `BTC-USD`[trading_days]
+
+df3 <- data.frame(Date = dxy_15$Date, 
+                  USD = log(dxy_15$Close), 
+                  SP500 = log(sp5_15$GSPC.Close),
+                  Bitcoin = log(btc_15[,"BTC-USD.Close"])
+                  )
+colnames(df3) <- c("Date", "USD", "SP500", "Bitcoin")
+
+plot_usd <- plot_ly(df3, x = ~Date, y = ~USD, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_sp5 <- plot_ly(df3, x = ~Date, y = ~SP500, type = 'scatter', mode = 'lines', name = 'S&P500 Index') 
+plot_btc <- plot_ly(df3, x = ~Date, y = ~Bitcoin, type = 'scatter', mode = 'lines', name = 'Bitcoin') 
+
+subplot(plot_usd, plot_sp5, plot_btc, nrows = 3, shareX = TRUE) %>%
+  layout(title = "Trend of U.S. Dollar and Related Variables", showlegend = FALSE,
+    xaxis = list(title = 'Date'),
+    yaxis = list(title = 'U.S. Dollar'),
+    yaxis2 = list(title = 'S&P500 Index'),
+    yaxis3 = list(title = 'Bitcoin'))
+```
+
+## Parameter(p) Selection
+
+```{r}
+ts_df3 <- ts(df3[,-1], start = c(2015,1), frequency = 252)
+VARselect(ts_df3, lag.max=6, type="both") 
+```
+
+Based on the results, the lag length could be 2 or 5.
+
+## Fit Models
+
+```{r}
+summary(fit <- VAR(ts_df3, p=2, type="both"))
+summary(fit <- VAR(ts_df3, p=5, type="both"))
+```
+
+The results looks similar. Next, we will perform cross-validation to determine the best model.
+
+## Cross Validation
+
+```{r}
+fun.var.3 <- function(ts, year, p, s){
+  fit <- VAR(ts, p=p, type='both')
+  fcast <- predict(fit, n.ahead = s)
+  
+  f1<-fcast$fcst$USD
+  f2<-fcast$fcst$SP500
+  f3<-fcast$fcst$Bitcoin
+  ff<-data.frame(f1[,1],f2[,1],f3[,1])
+  ff<-ts(ff,start=c(year,1),frequency = s)
+  return(ff)
+}
+
+data <- ts_df3
+n=nrow(data)
+n_var = ncol(data)
+h <- 252  # h: Forecast horizon
+# k: Initial training set
+# Calculate k as 1/3rd of the data, rounded down to the nearest multiple of 12
+k <- floor(n / 3 / h) * h
+num_iter <- (n - k) / h  # Number of rolling iterations
+
+# Initialize matrices for RMSE
+rmse1 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 1
+rmse2 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 2
+
+# Define rolling start time
+st <- tsp(data)[1] + (k - 1) / h 
+
+# Walk-Forward Validation Loop
+for (i in 1:num_iter) {
+  xtrain <- window(data, end = st + i - 1)
+  xtest <- window(data, start = st + (i - 1) + 1/h, end = st + i)  # Test set for the next 12 months
+  test_start_year <- st + (i-1) + 1/h #starting year for predication, i.e. xtest
+
+  ######## VAR(2) ############
+  ff1 <- fun.var.3(xtrain, test_start_year, p=2, s=h)
+  ######## VAR(5) ############
+  ff2 <- fun.var.3(xtrain, test_start_year, p=5, s=h)
+  
+  ##### collecting errors ######
+  a = h*i-h+1
+  b= h*i
+  rmse1[c(a:b),]  <-abs(ff1-xtest)
+  rmse2[c(a:b),]  <-abs(ff2-xtest)
+}
+
+rmse_combined <- as.data.frame(rbind(rmse1, rmse2))
+colnames(rmse_combined) = c("USD","S&P500","Bitcoin")
+rmse_combined$Model <- c(rep("VAR(2)", n-k),rep("VAR(5)", n-k))
+rmse_combined$Date <- time(data)[(k+1):n]
+
+# Create the USD RMSE plot with a legend
+ggplot(data = rmse_combined, aes(x = Date, y = USD, color = Model)) + 
+  geom_line() +
+  labs(
+    title = "CV Error for USD",
+    x = "Date",
+    y = "Error",
+    color = "Model"
+  ) +
+  theme_minimal()
+```
+
+The cross-validation results are very similar. Considering the principle of parsimony, we select VAR(2) as the best model.
+
+## Model Equation
+
+$$
+\begin{aligned}
+\left[\begin{array}{l}
+\hat{USD_t} \\ \hat{SP500_t} \\ \hat{Bitcoin_t}
+\end{array}\right] &= \left[\begin{array}{ccc}
+1.004 & -0.04421 & 0.0003686 \\
+-0.1135 & 0.8537 & 0.00008256 \\
+0.1870 & -0.07479 & 0.9902
+\end{array}\right] \left[\begin{array}{l}
+\text{USD}_{t-1} \\
+\text{SP500}_{t-1} \\
+\text{Bitcoin}_{t-1} \\
+\end{array}\right] \\
+&+ \left[\begin{array}{ccc}
+-0.01404 & -0.04576e & -0.0008659 \\
+0.1012 & 0.1336 & 0.00004339 \\
+-0.2622 & 0.05666 & 0.005311
+\end{array}\right] \left[\begin{array}{l}
+\text{USD}_{t-2} \\
+\text{SP500}_{t-2} \\
+\text{Bitcoin}_{t-2} \\
+\end{array}\right]
+\end{aligned}
+$$
+
+## Forecast
+
+```{r}
+# Fit a VAR(2) model including both a constant and trend
+fit <- VAR(data, p = 2, type = "both")
+
+forecast(fit, h=h) %>%
+  autoplot() + 
+  scale_x_continuous(breaks = 2015:2026) +
+  xlab("Year") +
+  theme_minimal()
+```
+
+:::
+
 ## VAR: USD ~ Oil Price + Gold Price
+
+::: panel-tabset
+
+## Time Series Plot
+
+```{r}
+xau_m <- xau %>%
+  mutate(month = floor_date(Date, "month")) %>% 
+  group_by(month) %>%
+  summarise(Price = mean(Price, na.rm = TRUE))
+
+df4 <- data.frame(Date = dxy_m$month, 
+                  USD = log(dxy_m$Close), 
+                  OilPrice = log(oil$Oil),
+                  GoldPrice = log(xau_m$Price)
+                  )
+
+plot_usd <- plot_ly(df4, x = ~Date, y = ~USD, type = 'scatter', mode = 'lines', name = 'U.S. Dollar')
+plot_oil <- plot_ly(df4, x = ~Date, y = ~OilPrice, type = 'scatter', mode = 'lines', name = 'Oil Price') 
+plot_gold <- plot_ly(df4, x = ~Date, y = ~GoldPrice, type = 'scatter', mode = 'lines', name = 'Gold Price') 
+
+subplot(plot_usd, plot_oil, plot_gold, nrows = 3, shareX = TRUE) %>%
+  layout(title = "Trend of U.S. Dollar and Related Variables", showlegend = FALSE,
+    xaxis = list(title = 'Date'),
+    yaxis = list(title = 'U.S. Dollar'),
+    yaxis2 = list(title = 'Crude Oil Price'),
+    yaxis3 = list(title = 'Gold Price'))
+```
+
+We can see that the USD and oil prices tend to move in opposite directions.
+
+## Parameter(p) Selection
+
+```{r}
+ts_df4 <- ts(df4[,-1], start = c(2005,1), frequency = 12)
+VARselect(ts_df4, lag.max=6, type="both") 
+```
+
+VAR(2) is selected as the best model. But we will further validate this choice through model diagnostics and cross-validation.
+
+## Fit models
+
+```{r}
+summary(fit <- VAR(ts_df4, p=1, type="both"))
+summary(fit <- VAR(ts_df4, p=2, type="both"))
+```
+
+## Cross Validation
+
+```{r}
+fun.var.4 <- function(ts, year, p, s){
+  fit <- VAR(ts, p=p, type='both')
+  fcast <- predict(fit, n.ahead = s)
+  
+  f1<-fcast$fcst$USD
+  f2<-fcast$fcst$OilPrice
+  f3<-fcast$fcst$GoldPrice
+  ff<-data.frame(f1[,1],f2[,1],f3[,1])
+  ff<-ts(ff,start=c(year,1),frequency = s)
+  return(ff)
+}
+
+data <- ts_df4
+n=nrow(data)
+n_var = ncol(data)
+h <- 12  # h: Forecast horizon
+# k: Initial training set
+# Calculate k as 1/3rd of the data, rounded down to the nearest multiple of 12
+k <- floor(n / 3 / h) * h
+num_iter <- (n - k) / h  # Number of rolling iterations
+
+# Initialize matrices for RMSE
+rmse1 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 1
+rmse2 <- matrix(NA, nrow = n-k, ncol = n_var)  # RMSE for Model 2
+
+# Define rolling start time
+st <- tsp(data)[1] + (k - 1) / h 
+
+# Walk-Forward Validation Loop
+for (i in 1:num_iter) {
+  xtrain <- window(data, end = st + i - 1)
+  xtest <- window(data, start = st + (i - 1) + 1/h, end = st + i)  # Test set for the next 12 months
+  test_start_year <- st + (i-1) + 1/h #starting year for predication, i.e. xtest
+
+  ######## VAR(1) ############
+  ff1 <- fun.var.4(xtrain, test_start_year, p=1, s=h)
+  ######## VAR(2) ############
+  ff2 <- fun.var.4(xtrain, test_start_year, p=2, s=h)
+  
+  ##### collecting errors ######
+  a = h*i-h+1
+  b= h*i
+  rmse1[c(a:b),]  <-abs(ff1-xtest)
+  rmse2[c(a:b),]  <-abs(ff2-xtest)
+}
+
+rmse_combined <- as.data.frame(rbind(rmse1, rmse2))
+colnames(rmse_combined) = c("USD","Oil Price","Gold Price")
+rmse_combined$Model <- c(rep("VAR(1)", n-k),rep("VAR(2)", n-k))
+rmse_combined$Date <- time(data)[(k+1):n]
+
+# Create the USD RMSE plot with a legend
+ggplot(data = rmse_combined, aes(x = Date, y = USD, color = Model)) + 
+  geom_line() +
+  labs(
+    title = "CV Error for USD",
+    x = "Date",
+    y = "Error",
+    color = "Model"
+  ) +
+  theme_minimal()
+```
+
+The cross-validation result of VAR(1) is not significantly better than that of VAR(2). Therefore, we proceed with VAR(2) as suggested by `VARselect()`, since it has a lower AIC.
+
+## Model Equation
+
+$$
+\begin{aligned}
+\left[\begin{array}{l}
+\hat{USD_t} \\ \hat{OilPrice_t} \\ \hat{GoldPrice_t}
+\end{array}\right] &= \left[\begin{array}{ccc}
+1.2027754 & -0.0113234 & -0.0131396 \\
+-0.3476 & 1.201 & 0.1588 \\
+-0.06861 & -0.02366 & 1.071
+\end{array}\right] \left[\begin{array}{l}
+\text{USD}_{t-1} \\
+\text{OilPrice}_{t-1} \\
+\text{GoldPrice}_{t-1} \\
+\end{array}\right] \\
+&+ \left[\begin{array}{ccc}
+-0.2850616 & 0.0171081 & -0.0064260 \\
+0.1539 & -0.3120 & -0.1185 \\
+0.1107 & 0.01827 & -0.08309
+\end{array}\right] \left[\begin{array}{l}
+\text{USD}_{t-2} \\
+\text{OilPrice}_{t-2} \\
+\text{GoldPrice}_{t-2} \\
+\end{array}\right]
+\end{aligned}
+$$
+
+## Forecast
+
+```{r}
+# Fit a VAR(2) model including both a constant and trend
+fit <- VAR(data, p = 2, type = "both")
+
+forecast(fit, h=h) %>%
+  autoplot() + 
+  xlab("Year") +
+  theme_minimal()
+```
+
+:::
 
 ## SARIMAX: USD ~ Egg Price
 
