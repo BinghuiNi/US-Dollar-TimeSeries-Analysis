@@ -1,0 +1,13 @@
+---
+title: "Conclusion"
+---
+
+To summarize:
+
+- The U.S. Dollar Index shows long-term trends and short-term fluctuations.
+
+
+- Its movements are influenced by macroeconomic conditions, especially inflation and trade.
+
+
+- Forecasting the dollar is useful, and volatility modeling gives valuable risk insights.

@@ -1,5 +1,9 @@
 ---
 title: "Introduction"
+config:
+  layout: dagre
+  theme: redux
+  look: neo
 nocite: |
   @*
 ---
@@ -13,9 +17,39 @@ This project aims to analyze the fluctuations of the U.S. Dollar Index (DXY) ove
 
 ## The Big Picture
 
+<!--
 <p align="center">
   <img src="./img/big_pic.png" height="500">
 </p>
+-->
+
+
+::: {style="text-align: center;"}
+
+```{mermaid}
+flowchart LR
+    A("U.S. Dollar Index") --> B("International Trade<br>(Imports &amp; Exports)")
+    A --> C("Macroeconomic Factors<br>(GDP, Unemployment Rate, CPI, Interest Rate)")
+    A --> D("Financial Market<br>(Stock, Bitcoin)")
+    A --> E("Global Commodity Market<br>(Gold, Crude Oil)")
+    A --> F("Real Economy<br>(Egg Price, Real Estate, Tourism)")
+        
+    classDef Sky stroke-width:1px, stroke-dasharray:none, stroke:#374D7C, fill:#E2EBFF, color:#374D7C
+    A:::Sky
+    B:::Sky
+    C:::Sky
+    D:::Sky
+    E:::Sky
+    F:::Sky
+    
+    linkStyle 0 stroke:#BBDEFB,fill:none
+    linkStyle 1 stroke:#BBDEFB,fill:none
+    linkStyle 2 stroke:#BBDEFB,fill:none
+    linkStyle 3 stroke:#BBDEFB,fill:none
+    linkStyle 4 stroke:#BBDEFB,fill:none
+```
+
+:::
 
 The U.S. Dollar Index (DXY) has a wide-reaching impact on many areas of the global economy, making it a critical subject of study. This analysis will consider the following five main areas:
 
