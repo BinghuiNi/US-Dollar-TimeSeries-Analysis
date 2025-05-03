@@ -101,7 +101,7 @@ Gross Domestic Product (GDP) is the total value of all goods and services produc
 
 ```{r}
 gdp <- read.csv("./data/gdp.csv")
-gdp$time <- as.Date(seq(from = as.Date("2005-01-01"), to = as.Date("2024-09-01"), by = "quarter"))
+gdp$time <- as.Date(seq(from = as.Date("2005-01-01"), to = as.Date("2024-10-01"), by = "quarter"))
 gdp_long <- pivot_longer(gdp, 
                          cols = c(consumption, investment, net_export, government), 
                          names_to = "Category", 

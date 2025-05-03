@@ -32,10 +32,10 @@ website:
         text: Multivariate TS Models (ARIMAX/SARIMAX/VAR)
       - href: financial_ts_models.qmd
         text: Financial TS Models (ARCH/GARCH)
-      - href: deep_learning_for_ts.qmd
-        text: Deep Learning for TS
+      - href: deep_learning_for_ts.ipynb
+        text: Deep Learning for TS (RNN/LSTM/GRU)
       - href: other_analysis.qmd
-        text: "Other: Interrupted TS/ARFIMA/ Spectral Analysis"
+        text: "Interrupted TS Models"
       - href: conclusions.qmd
         text: Conclusions
 
