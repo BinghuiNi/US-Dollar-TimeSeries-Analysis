@@ -34,8 +34,8 @@ website:
         text: Financial TS Models (ARCH/GARCH)
       - href: deep_learning_for_ts.ipynb
         text: Deep Learning for TS (RNN/LSTM/GRU)
-      - href: other_analysis.qmd
-        text: "Interrupted TS Models"
+      - href: interrupted_analysis.qmd
+        text: Interrupted TS Analysis
       - href: conclusions.qmd
         text: Conclusions
 

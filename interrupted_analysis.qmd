@@ -1,0 +1,436 @@
+---
+title: "Interrupted TS Analysis"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    code-fold: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+In previous sections, we focused on long-term trends and the influence of macroeconomic variables on the U.S. Dollar Index. However, those models assume a relatively stable environment and do not account for sudden shocks or structural breaks.
+
+To address this gap, we apply an Interrupted Time Series analysis to examine the impact of an exogenous, disruptive event, such as the outbreak of COVID-19, on the trend of the Dollar Index.
+
+As shown in the figure below, the USD experienced a sharp decline in late 2020, followed by a rapid recovery and continued volatility. This visible shift in the level and trend suggests a potential structural change. The ITS model allows us to quantify:
+
+ - whether there was an immediate impact on the Dollar Index following the outbreak
+
+ - whether the long-term trend of the index changed after the event
+
+We use December 2020 as the intervention point, which marks the period when global financial markets began to respond significantly to the economic consequences of COVID-19.
+
+## Graph to identify the intervention
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(forecast)
+library(astsa) 
+library(xts)
+library(tseries)
+library(fpp2)
+library(fma)
+library(lubridate)
+library(tidyverse)
+library(TSstudio)
+library(quantmod)
+library(tidyquant)
+library(plotly)
+library(ggplot2)
+library(knitr)
+library(kableExtra)
+library(fGarch)
+
+# Load data
+invisible(getSymbols("DX-Y.NYB", src = "yahoo", from = "2005-01-01", to = "2024-12-31"))
+dxy <- data.frame(Date = index(`DX-Y.NYB`),
+                       Open = `DX-Y.NYB`[, "DX-Y.NYB.Open"], 
+                       High = `DX-Y.NYB`[, "DX-Y.NYB.High"], 
+                       Low = `DX-Y.NYB`[, "DX-Y.NYB.Low"], 
+                       Close = `DX-Y.NYB`[, "DX-Y.NYB.Close"],
+                       Adjusted = `DX-Y.NYB`[,"DX-Y.NYB.Adjusted"])
+colnames(dxy) <- c("Date", "Open", "High", "Low", "Close", "Adjusted")
+dxy <- na.omit(dxy)
+dxy$Date <- as.Date(dxy$Date, format = "%m/%d/%Y")
+dxy_m <- dxy %>%
+  mutate(month = floor_date(Date, "month")) %>% 
+  group_by(month) %>%
+  summarise(Adjusted = mean(Adjusted, na.rm = TRUE))
+
+# Define the intervention date
+intervention_date <- as.Date("2020-12-01")
+max_y <- max(dxy$Adjusted)
+min_y <- min(dxy$Adjusted)
+
+# Create the plot
+fig <- plot_ly(dxy_m, x = ~month, y = ~Adjusted,
+               name = 'U.S. Dollar Index', type = 'scatter', mode = 'lines') %>%
+  layout(
+    shapes = list(
+      list(
+        type = "line",
+        x0 = intervention_date,
+        x1 = intervention_date,
+        y0 = min_y,
+        y1 = max_y,
+        line = list(color = "red", dash = "dash"),
+        xref = "x",
+        yref = "y"
+      )
+    ),
+    annotations = list(
+      list(
+        x = intervention_date,
+        y = max_y * 0.95,  # Adjust vertically as needed
+        text = "COVID-19",
+        showarrow = TRUE,
+        arrowhead = 2,
+        ax = 0,
+        ay = -40,
+        font = list(size = 12, color = "red")
+      )
+    ),
+    title = "U.S. Dollar Index Over Time with Intervention Marker",
+    xaxis = list(title = "Date"),
+    yaxis = list(title = "Index Value")
+  )
+
+fig
+```
+
+We can see that the U.S. Dollar Index experienced a significant drop in December 2020, coinciding with the onset of the COVID-19 pandemic. This event serves as our intervention point for the Interrupted Time Series analysis.
+
+## Graph with trend lines
+
+```{r}
+# Created Data Set for the ITS analysis
+dataTS <- data.frame(
+  Y  = dxy_m$Adjusted,
+  Xt = seq_along(dxy_m$Adjusted),
+  Zt = ifelse(dxy_m$month < intervention_date, 0, 1),
+  Pt = 0
+)
+
+# Assign values to Pt only after intervention
+dataTS$Pt[dxy_m$month >= intervention_date] <- seq_len(sum(dxy_m$month >= intervention_date))
+
+# Preview key rows: head, before and after intervention, and tail
+d.temp <- dataTS
+d.temp$Y <- round(as.numeric(d.temp$Y), 2)
+d.temp <- rbind(
+  head(d.temp, 5),
+  c("...", "...", "...", "..."),
+  d.temp[189:191, ],
+  c("**START**", "**COVID**", "---", "---"),
+  d.temp[192:199, ],
+  c("...", "...", "...", "..."),
+  tail(d.temp, 5)
+)
+
+# Display the preview table using kable
+kable(d.temp, caption = "Preview of Time Series Data Using Notations Xt, Zt, and Pt") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover", "condensed"))
+```
+
+```{r}
+# Fit the interrupted time series regression model
+model <- lm(Y ~ Xt + Zt + Pt, data = dataTS)
+
+# Add fitted values to the dataset
+dataTS$Y_hat <- predict(model)
+
+# Create interactive plot
+plot_ly(dataTS, x = ~Xt) %>%
+  
+  # Add raw data points
+  add_markers(y = ~Y,
+              name = "Observed",
+              marker = list(color = 'gray', opacity = 0.6),
+              hoverinfo = 'text',
+              text = ~paste("Time:", Xt, "<br>Y:", round(Y, 2))) %>%
+  
+  # Add fitted regression line
+  add_lines(y = ~Y_hat,
+            name = "Fitted Line",
+            line = list(color = 'steelblue', width = 2)) %>%
+  
+  # Add vertical line at T = 191 for COVID
+  add_segments(x = 191, xend = 191,
+               y = min(dataTS$Y), yend = max(dataTS$Y),
+               line = list(dash = "dot", color = "firebrick", width = 2),
+               name = "COVID-19 Shock") %>%
+  
+  # Layout styling
+  layout(
+    title = "Interrupted Time Series: U.S. Dollar Index",
+    xaxis = list(title = "Time (months)"),
+    yaxis = list(title = "Index Value"),
+    showlegend = TRUE,
+    annotations = list(
+      list(
+        x = 66,
+        y = max(dataTS$Y),
+        text = "COVID-19 Shock",
+        showarrow = FALSE,
+        font = list(color = "firebrick", size = 12)
+      )
+    )
+  )
+```
+
+Notes:
+
+- The vertical line marks $X_t$ =191, which is the COVID-19 shock.
+
+- The fitted regression includes: 
+    - $X_t$: baseline time trend
+    - $Z_t$: immediate level change
+    - $P_t$: change in slope after intervention
+
+## Variable Descriptions
+
+| Column | Variable Name       | Description                                                                   |
+| ------ | ------------------- | ----------------------------------------------------------------------------- |
+| $Y_t$  | U.S. Dollar Index   | Monthly adjusted value of the U.S. Dollar Index                                |
+| $X_t$  | Time                | Time index (e.g., sequential months from the start of the dataset)            |
+| $Z_t$  | COVID-19 Indicator  | Equals 1 if the observation is on or after December 2020, 0 otherwise         |
+| $P_t$  | Time Since COVID-19 | Number of months since December 2020 (0 before intervention, increases after) |
+
+**Now the Equation becomes**
+
+$$
+Y_t = \beta_0 + \beta_1 \cdot X_t + \beta_2 \cdot Z_t + \beta_3 \cdot P_t + \varepsilon_t
+$$
+
+**Where:**
+
+* $Y_t$ = U.S. Dollar Index at time $t$
+* $X_t$ = Time (e.g., month index)
+* $Z_t$ = COVID-19 indicator (0 before December 2020, 1 after)
+* $P_t$ = Time since COVID-19 (0 before December 2020, increases afterward)
+* $\varepsilon_t$ = Random error term
+
+## Predicted outcomes and their Counterfactuals
+
+Fitting the model:
+
+```{r}
+# Load required libraries
+library(broom)
+
+# Fit the interrupted time series model
+regTS <- lm(Y ~ Xt + Zt + Pt, data = dataTS)
+
+# Tidy the model output
+summary_table <- tidy(regTS)
+
+# Add significance stars manually
+summary_table <- summary_table %>%
+  mutate(
+    stars = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01 ~ "**",
+      p.value < 0.05 ~ "*",
+      p.value < 0.1 ~ ".",
+      TRUE ~ ""
+    ),
+    term = recode(term,
+                  "Xt" = "Time",
+                  "Zt" = "COVID-19 Indicator",
+                  "Pt" = "Time Since COVID-19",
+                  "(Intercept)" = "Constant"),
+    `Estimate (SE)` = paste0(round(estimate, 2), stars, "\n(", round(std.error, 2), ")")
+  )
+
+# Select and print the desired columns
+summary_table %>%
+  select(term, `Estimate (SE)`) %>%
+  kable(col.names = c(" ", "Estimate (SE)"), align = "l", escape = FALSE) %>%
+  kable_styling(full_width = FALSE)
+```
+
+| Term                    | Value               | Interpretation                                                                                                                | Beta Notation |
+| ----------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| **Constant**            | 77.49 (\*\*\* 0.83) | This is the **starting level** of the Dollar Index at time $X_t = 0$                                                          | $\beta_0$     |
+| **Time**                | 0.10 (\*\*\* 0.01)  | This is the **pre-COVID trend** — the average monthly increase in the Dollar Index before the intervention                    | $\beta_1$     |
+| **COVID-19 Indicator**  | -3.17 (ns 1.84)     | This is the **immediate effect** of COVID-19 (level change) at the time of intervention. It is not statistically significant. | $\beta_2$     |
+| **Time Since COVID-19** | 0.21 (\*\*\* 0.06)  | This is the **change in slope** after the intervention — the post-COVID trend increased by an additional 0.21 per month       | $\beta_3$     |
+
+
+Let’s interpret our coefficients:
+
+- The **Time** coefficient reflects the trend in the U.S. Dollar Index before the intervention (COVID-19). It is positive and highly significant, indicating that the Dollar Index was gradually increasing over time. Specifically, for each month before December 2020, the index increased by **0.10 points** on average.
+
+- The **COVID-19 Indicator** coefficient represents the immediate level change at the time of the intervention. The estimated effect is **-3.17**, but it is **not statistically significant**, suggesting that there was no sharp or consistent drop in the Dollar Index exactly at the point when the pandemic's economic impact emerged.
+
+- The **Time Since COVID-19** coefficient captures the change in trend following the intervention. It is positive and highly significant, meaning that after December 2020, the Dollar Index began to increase at a **faster rate**. Specifically, the monthly growth rate rose by an additional **0.21 points** compared to the pre-COVID trend.
+
+- The **Constant** term (**77.49**) represents the estimated level of the Dollar Index at the beginning of the time series (i.e., when $X_t = 0$).
+
+## Plotting all predicted outcomes and their counterfactuals
+
+```{r}
+# Step 1: Get predictions
+dataTS$Y_hat <- predict(regTS, newdata = dataTS)
+
+# Step 2: Create counterfactuals where Zt and Pt = 0
+datanew <- data.frame(
+  Xt = dataTS$Xt,
+  Zt = 0,
+  Pt = 0
+)
+dataTS$Y_counterfactual <- predict(regTS, newdata = datanew)
+
+# Step 3: Create interactive plot
+fig <- plot_ly()
+
+# Actual observed values
+fig <- fig %>%
+  add_markers(x = ~dataTS$Xt, y = ~dataTS$Y,
+              name = "Observed Index",
+              marker = list(color = 'gray', opacity = 0.5))
+
+# Predicted line before and after COVID
+fig <- fig %>%
+  add_lines(x = ~dataTS$Xt[1:191], y = ~dataTS$Y_hat[1:191],
+            name = "Predicted (Pre-COVID)",
+            line = list(color = 'dodgerblue')) %>%
+  add_lines(x = ~dataTS$Xt[192:nrow(dataTS)], y = ~dataTS$Y_hat[192:nrow(dataTS)],
+            name = "Predicted (Post-COVID)",
+            line = list(color = 'dodgerblue'))
+
+# Counterfactual line after COVID
+fig <- fig %>%
+  add_lines(x = ~dataTS$Xt[192:nrow(dataTS)], y = ~dataTS$Y_counterfactual[192:nrow(dataTS)],
+            name = "Counterfactual (No COVID)",
+            line = list(color = 'darkorange', dash = 'dash'))
+
+# Vertical line for intervention
+fig <- fig %>%
+  add_lines(x = c(192,192), y = c(min(dataTS$Y), max(dataTS$Y)),
+            name = "COVID-19 Intervention",
+            line = list(color = 'firebrick', dash = 'dot'),
+            showlegend = TRUE)
+
+# Layout settings
+fig <- fig %>%
+  layout(title = "U.S. Dollar Index: Predicted vs. Counterfactual (COVID-19)",
+         xaxis = list(title = "Time (months)"),
+         yaxis = list(title = "Index Value"),
+         legend = list(x = 0.01, y = 0.99))
+
+fig
+```
+
+We can clearly see that there is a small immediate effect but more a sustained effect.
+
+## Delayed Effects in Time Series
+
+The coefficients estimated in our interrupted time series model do not tell us whether the difference between each predicted value and its counterfactual is statistically significant. Rather, they help us understand two key structural effects:
+
+* whether there was an immediate level change in the U.S. Dollar Index after the COVID-19 intervention
+* whether the slope (or trend) of the U.S. Dollar Index changed after the intervention occurred
+
+There is no formal statistical test available to evaluate whether individual predicted outcomes differ significantly from their corresponding counterfactuals. This is important to keep in mind when interpreting the trajectory of the data over time.
+
+In this case, for example, the impact of COVID-19 on the U.S. Dollar Index may vary depending on the time period we observe. It is possible that there was no clear immediate effect. A more sustained change may have developed gradually in the months that followed. Alternatively, the index might have declined briefly and then recovered, which reflects the evolving reactions of global markets to uncertainty and economic policy responses during the pandemic.
+
+Understanding these delayed or dynamic effects requires us to examine the entire time series and its context. We should not rely on regression coefficients alone.
+
+## Delayed Effects of the COVID-19 Intervention
+
+In time series analysis, timing plays an important role when interpreting the effect of an intervention. Suppose we want to know whether COVID-19 had a negative or positive impact on the U.S. Dollar Index. The answer depends on when we look.
+
+If we observe the index immediately after the intervention, such as in December 2020, we might see only a small change or a short-term decline.
+
+However, if we check again several months later, such as in mid-2021 or beyond, we may find that the index had already recovered or even increased. This would suggest a positive effect in the longer term.
+
+This situation is an example of a delayed effect. It is common in interrupted time series analysis.
+
+```{r}
+# Predict from your actual model
+pred1 <- predict(regTS, newdata = dataTS)
+
+# Create counterfactual dataset (COVID-19 never happens)
+datanew <- data.frame(
+  Xt = 1:nrow(dataTS),
+  Zt = 0,
+  Pt = 0
+)
+pred2 <- predict(regTS, newdata = datanew)
+
+# Step 3: Add predictions to data
+dataTS$Y_hat <- pred1
+dataTS$Y_counterfactual <- pred2
+dataTS$Xt <- 1:nrow(dataTS)
+
+# Step 4: Create interactive plot
+
+fig <- plot_ly()
+
+# Observed values
+fig <- fig %>%
+  add_markers(x = ~Xt, y = ~Y, data = dataTS,
+              name = "Observed Index",
+              marker = list(color = "gray", opacity = 0.5))
+
+# Predicted trend (before and after T = 191)
+fig <- fig %>%
+  add_lines(x = ~Xt[1:191], y = ~Y_hat[1:191], data = dataTS,
+            name = "Predicted (Pre-COVID)",
+            line = list(color = 'dodgerblue4')) %>%
+  add_lines(x = ~Xt[192:nrow(dataTS)], y = ~Y_hat[192:nrow(dataTS)], data = dataTS,
+            name = "Predicted (Post-COVID)",
+            line = list(color = 'dodgerblue4'))
+
+# Counterfactual trend (from T = 192 onward)
+fig <- fig %>%
+  add_lines(x = ~Xt[192:nrow(dataTS)], y = ~Y_counterfactual[192:nrow(dataTS)], data = dataTS,
+            name = "Counterfactual (No COVID)",
+            line = list(color = 'darkorange2', dash = 'dash'))
+
+# Add vertical intervention line (T = 191)
+fig <- fig %>%
+  add_lines(x = c(191, 191), y = c(min(dataTS$Y), max(dataTS$Y)),
+            line = list(color = 'red', dash = 'dot'),
+            showlegend = FALSE) %>%
+  add_text(x = 191, y = max(dataTS$Y) + 1, text = "COVID-19 Intervention",
+           showlegend = FALSE, textfont = list(color = "red"))
+
+# Add delayed effect line (T = 235)
+fig <- fig %>%
+  add_lines(x = c(235, 235), y = c(min(dataTS$Y), max(dataTS$Y)),
+            line = list(color = 'forestgreen', dash = 'dot'),
+            showlegend = FALSE) %>%
+  add_text(x = 223, y = max(dataTS$Y) + 3, text = "Possible Delayed Effect",
+           showlegend = FALSE, textfont = list(color = "forestgreen"))
+
+# Layout settings
+fig <- fig %>%
+  layout(title = "U.S. Dollar Index: Predicted vs. Counterfactual (COVID-19)",
+         xaxis = list(title = "Time (months)"),
+         yaxis = list(title = "Index Value"),
+         legend = list(x = 0.01, y = 0.99))
+
+fig
+```
+
+At **T = 191** (the red line), which marks the start of the COVID-19 intervention, the predicted value of the U.S. Dollar Index shows a **slight decline**. Although the drop is small and statistically insignificant, it suggests a possible short-term negative impact of COVID-19 on the index.
+
+Over time, especially by **T = 235** (the green line), the predicted values begin to rise more rapidly and exceed the counterfactual. This indicates a **delayed effect**, where the index strengthened more than expected under a no-COVID scenario.
+
+In the graph:
+
+* The **gray points** are the observed monthly values of the Dollar Index
+* The **blue line** shows predicted values from the ITS model
+* The **orange dashed line** is the counterfactual trend without COVID-19
+* The **red vertical line** marks the timing of the intervention (T = 191)
+* The **green vertical line** highlights a point used to examine delayed effects (T = 235)
+
+## Conclusion
+
+COVID-19 was associated with a small, short-term decline in the U.S. Dollar Index, though this immediate effect was not statistically significant. In the following months, the index rose faster than expected, suggesting a **positive long-term effect**. This pattern highlights the importance of considering both short-term reactions and longer-term shifts when evaluating the impact of external shocks in time series analysis.
